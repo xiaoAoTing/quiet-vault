@@ -24,3 +24,18 @@ An independent, read-only code-review agent reviewed encryption, persistence, im
 - Crypto unit tests and desktop/mobile Playwright tests are included, but remain unexecuted. No package-lock could be generated from a successful resolution. Run the README commands in a network-enabled environment before trusting this MVP with real credentials.
 
 This is source implementation plus limited static review, not an independently audited password manager or a verified runnable delivery.
+
+
+## UI refresh — 2026-11-04
+
+The UI now uses a centered, single-column archive layout, charcoal surfaces, mint accents, local monospace fonts, simple category navigation and compact password rows with update dates. It takes structural inspiration from https://www.ceee.vip/; the reference page's text was accessible, but its screenshot and stylesheet were unavailable, so the colors are an interpretation rather than a verified reproduction. No crypto or storage code was changed.
+
+A separate read-only UI review identified a long-category-name overflow risk. Added wrapping/minimum-width rules for titles and breadcrumbs, protected action widths and constrained desktop navigation items. Mobile category navigation scrolls horizontally; category search remains available in the management dialog. Touch controls retain 44px heights, visible focus and reduced-motion support.
+
+Current verification supersedes the initial dependency-related limitations above:
+
+- Dependencies are now available locally. `npm run build` passes, including the real TypeScript project check and production bundling.
+- `npm test` passes: all 4 real Argon2id/AES-GCM tests.
+- `npm run test:e2e` cannot start the Vite test server: sandbox denies listening on `127.0.0.1:4173` (`EPERM`).
+- A separate attempt to load the production build through Playwright request routing also failed at Chromium startup due to a macOS MachPort permission denial. No browser screenshot or responsive visual acceptance is claimed.
+- The pre-existing untracked `pnpm-lock.yaml` was preserved and is outside this UI commit.
