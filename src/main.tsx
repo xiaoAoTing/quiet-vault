@@ -1,10 +1,21 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { ShieldCheck, LockKeyhole, Plus, Search, Download, Upload, Folder, KeyRound, Pencil, Trash2, X, Eye, EyeOff, Copy, ArrowRight } from './icons';
+import { ShieldCheck, LockKeyhole, Plus, Search, Download, Upload, Folder, KeyRound, Pencil, Trash2, X, Eye, EyeOff, Copy, ArrowRight, Sun, Moon } from './icons';
 import { createVault, openVault, parseEnvelope, seal, MAX_FILE_SIZE, type Vault, type Entry, type Envelope } from './vault';
 import './style.css';
 const STORAGE = 'quiet-vault.v1';
+const THEME_KEY = 'quiet-vault.theme';
 type Session = { key: CryptoKey; vault: Vault; envelope: Envelope };
+type Theme = 'light' | 'dark';
+function readTheme(): Theme {
+  try { return localStorage.getItem(THEME_KEY) === 'dark' ? 'dark' : 'light'; } catch { return 'light'; }
+}
+function applyTheme(theme: Theme) {
+  document.documentElement.dataset.theme = theme;
+  document.querySelector('meta[name="theme-color"]')?.setAttribute('content', theme === 'dark' ? '#1d1f21' : '#f6f5f1');
+}
+const initialTheme = readTheme();
+applyTheme(initialTheme);
 const blankEntry = (): Entry => ({ id: crypto.randomUUID(), title: '', username: '', password: '', url: '', notes: '', categoryId: '', updatedAt: '' });
 function App() {
   const [stored, setStored] = useState<Envelope | null>(null);
@@ -26,10 +37,12 @@ function App() {
   const [categoryId, setCategoryId] = useState('');
   const [revealed, setRevealed] = useState(false);
   const [startupError, setStartupError] = useState(false);
+  const [theme, setTheme] = useState<Theme>(initialTheme);
   const fileRef = useRef<HTMLInputElement>(null);
   const version = useRef<string | null>(null);
   const generation = useRef(0);
   function assign(value: Session | null) { sessionRef.current = value; setSession(value); }
+  function toggleTheme() { setTheme(value => value === 'dark' ? 'light' : 'dark'); }
   function lock() {
     generation.current++;
     assign(null); setEditor(null); setCategoriesOpen(false); setPassword(''); setConfirmPassword(''); setRevealed(false); setQuery(''); setCategoryQuery(''); setCategoryName(''); setCategoryId(''); setPending(null); setFilter('*');
@@ -56,6 +69,7 @@ function App() {
     return () => { clearTimeout(timer); window.removeEventListener('pointerdown', reset); window.removeEventListener('keydown', reset); };
   }, [!!session]);
   useEffect(() => { if (!notice) return; const timer = setTimeout(() => setNotice(''), 4000); return () => clearTimeout(timer); }, [notice]);
+  useEffect(() => { applyTheme(theme); try { localStorage.setItem(THEME_KEY, theme); } catch {} }, [theme]);
   async function run(task: (token: number) => Promise<void>) {
     if (busyRef.current) return;
     busyRef.current = true; setBusy(true); setError('');
@@ -116,7 +130,7 @@ function App() {
   return <>
     <input ref={fileRef} type="file" accept=".qvault,.json,application/json" hidden onChange={e => { void importFile(e.target.files?.[0]); e.target.value = ''; }}/>
     {!session ? <main className="gate">
-      <div className="gate-brand"><ShieldCheck size={30}/><span>quiet vault<span className="brand-dot">.</span></span></div>
+      <div className="gate-top"><div className="gate-brand"><ShieldCheck size={30}/><span>quiet vault<span className="brand-dot">.</span></span></div><ThemeToggle theme={theme} onToggle={toggleTheme}/></div>
       <section className="gate-card"><div className="lock-emblem"><LockKeyhole size={30}/></div><p className="eyebrow">YOUR PASSWORDS. YOUR CONTROL.</p>
         <h1>{pending ? '打开加密备份' : stored ? '欢迎回来' : '给你的密码，一个安全的家'}</h1><p className="muted">{pending ? '使用备份文件的主密码解锁。' : stored ? '输入主密码，解锁此设备上的保险库。' : '没有账号，没有云端。只有你和你的主密码。'}</p>
         <form onSubmit={unlock}><label>主密码<input autoFocus type="password" autoComplete={stored || pending ? 'current-password':'new-password'} value={password} onChange={e=>setPassword(e.target.value)} required placeholder={stored || pending ? '输入主密码' : '至少 12 个字符，建议使用长口令'} maxLength={1024}/></label>
@@ -134,7 +148,7 @@ function App() {
           <button className={filter===''?'nav-item active':'nav-item'} onClick={()=>setFilter('')}><Folder size={18}/>未分类<span>{vault!.entries.filter(e=>!e.categoryId).length}</span></button>
         </nav><div className="aside-bottom"><div className="local-badge"><span/>本地保险库</div><p>数据只属于你。<br/>记得为它留一份备份。</p><button onClick={()=>setCategoriesOpen(true)}><Pencil size={16}/>管理分类</button></div>
       </aside>
-      <main className="workspace"><header><div className="breadcrumb">个人保险库 <span>/</span> {selected}</div><div className="header-actions"><button onClick={()=>setCategoriesOpen(true)} disabled={busy}><Folder size={16}/>分类</button><button onClick={lock} disabled={busy}><LockKeyhole size={16}/>锁定</button></div></header>
+      <main className="workspace"><header><div className="breadcrumb">个人保险库 <span>/</span> {selected}</div><div className="header-actions"><ThemeToggle theme={theme} onToggle={toggleTheme}/><button onClick={()=>setCategoriesOpen(true)} disabled={busy}><Folder size={16}/>分类</button><button onClick={lock} disabled={busy}><LockKeyhole size={16}/>锁定</button></div></header>
         <div className="content"><div className="page-heading"><div><p className="eyebrow">PRIVATE BY DESIGN</p><h1>{selected}<span>{entries.length}</span></h1><p className="muted">把重要的登录信息，安心放在这里。</p></div><button className="primary" disabled={busy} onClick={()=>{setEditor({...blankEntry(),categoryId:filter==='*'?'':filter});setRevealed(false);}}><Plus size={18}/>新增密码</button></div>
           <div className="toolbar"><div className="search"><Search size={19}/><input aria-label="搜索密码" placeholder="搜索名称、账号、网址或备注…" value={query} onChange={e=>setQuery(e.target.value)}/></div><div className="file-actions"><button disabled={busy} onClick={()=>fileRef.current?.click()}><Upload size={17}/>导入</button><button disabled={busy} onClick={exportFile}><Download size={17}/>导出备份</button></div></div>
           <div className="save-status"><span/><span>{busy ? '正在加密保存…':'所有更改已加密保存在此浏览器'}</span><span className="sort-note">按名称排序</span></div>
@@ -162,6 +176,10 @@ function App() {
     {error && <div className="toast error" role="alert"><span>{error}</span><button aria-label="关闭错误" onClick={()=>setError('')}><X size={18}/></button></div>}
     {notice && <div className="toast" role="status">{notice}</div>}
   </>;
+}
+function ThemeToggle({theme,onToggle}:{theme:Theme;onToggle:()=>void}) {
+  const next = theme === 'dark' ? '亮色' : '暗色';
+  return <button className="theme-toggle" type="button" onClick={onToggle} aria-label={`切换到${next}主题`} title={`切换到${next}主题`}>{theme === 'dark' ? <Sun size={16}/> : <Moon size={16}/>}<span>{next}</span></button>;
 }
 function Modal({title,close,disabled,children,error}:{title:string;close:()=>void;disabled:boolean;children:React.ReactNode;error:string}) {
   const ref = useRef<HTMLDialogElement>(null);
