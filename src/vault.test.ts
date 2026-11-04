@@ -1,0 +1,36 @@
+import { describe, it, expect } from 'vitest';
+import { createVault, openVault, seal, parseEnvelope, validateVault, MAX_FILE_SIZE } from './vault';
+describe('encrypted vault', () => {
+  it('round trips data, randomizes salt/IV, never serializes plaintext or password', async () => {
+    const password = 'a long test passphrase';
+    const a = await createVault(password);
+    const b = await createVault(password);
+    expect(a.envelope.salt).not.toBe(b.envelope.salt);
+    const vault = { categories:[{id:'work',name:'工作'}],entries:[{id:'1',title:'Private account',username:'alice',password:'secret-password',url:'https://example.com',notes:'私密备注',categoryId:'work',updatedAt:'2026-01-01'}] };
+    const first = await seal(vault, a.key, a.envelope.salt);
+    const second = await seal(vault, a.key, a.envelope.salt);
+    expect(first.iv).not.toBe(second.iv);
+    for (const secret of ['Private account','alice','secret-password','私密备注',password]) expect(JSON.stringify(first)).not.toContain(secret);
+    expect((await openVault(parseEnvelope(JSON.stringify(first)), password)).vault).toEqual(vault);
+    expect(a.key.extractable).toBe(false);
+  });
+  it('rejects wrong passwords and ciphertext tampering', async () => {
+    const {envelope} = await createVault('test password long enough');
+    await expect(openVault(envelope,'wrong')).rejects.toThrow('无法解锁');
+    const altered = {...envelope,ciphertext:(envelope.ciphertext[0]==='A'?'B':'A')+envelope.ciphertext.slice(1)};
+    await expect(openVault(altered,'test password long enough')).rejects.toThrow('无法解锁');
+  });
+  it('rejects invalid or expensive parameters before invoking KDF', async () => {
+    const {envelope} = await createVault('test password long enough');
+    expect(()=>parseEnvelope(JSON.stringify({...envelope, kdf:{...envelope.kdf,memorySize:2**30}}))).toThrow('参数');
+    expect(()=>parseEnvelope(JSON.stringify({...envelope,iv:'AAAA'}))).toThrow();
+    expect(()=>parseEnvelope('x'.repeat(MAX_FILE_SIZE+1))).toThrow('5 MB');
+    expect(()=>parseEnvelope('{')).toThrow();
+    expect(()=>parseEnvelope(JSON.stringify({...envelope,version:2}))).toThrow();
+  });
+  it('rejects malformed payloads and dangling category references', () => {
+    expect(()=>validateVault({categories:[],entries:[{id:'1'}]})).toThrow();
+    expect(()=>validateVault({categories:[{id:'a',name:'A'},{id:'a',name:'B'}],entries:[]})).toThrow();
+    expect(()=>validateVault({categories:[],entries:[{id:'1',title:'test',username:'',password:'p',url:'',notes:'',categoryId:'missing',updatedAt:''}]})).toThrow();
+  });
+});
