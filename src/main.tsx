@@ -1,7 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ShieldCheck, LockKeyhole, Plus, Search, Download, Upload, Folder, KeyRound, Pencil, Trash2, X, Eye, EyeOff, Copy, ArrowRight, Sun, Moon } from './icons';
-import { createVault, openVault, parseEnvelope, seal, MAX_FILE_SIZE, type Vault, type Entry, type Envelope } from './vault';
+import { createVault, openVault, parseEnvelope, seal, masterPasswordProblem, MAX_FILE_SIZE, type Vault, type Entry, type Envelope } from './vault';
 import './style.css';
 const STORAGE = 'quiet-vault.v1';
 const THEME_KEY = 'quiet-vault.theme';
@@ -92,7 +92,11 @@ function App() {
   async function unlock(e: React.FormEvent) {
     e.preventDefault();
     const target = pending ?? stored;
-    if (!target && (password.length < 12 || password !== confirmPassword)) { setError('请设置至少 12 个字符的主密码，并确保两次输入一致'); return; }
+    if (!target) {
+      if (password !== confirmPassword) { setError('两次输入的主密码不一致'); return; }
+      const problem = masterPasswordProblem(password);
+      if (problem) { setError(problem); return; }
+    }
     await run(async token => {
       const next = target ? await openVault(target, password) : await createVault(password);
       if (pending && !window.confirm('导入将替换此浏览器的保险库。请确认已经导出当前备份。继续？')) return;
@@ -133,8 +137,9 @@ function App() {
       <div className="gate-top"><div className="gate-brand"><ShieldCheck size={30}/><span>quiet vault<span className="brand-dot">.</span></span></div><ThemeToggle theme={theme} onToggle={toggleTheme}/></div>
       <section className="gate-card"><div className="lock-emblem"><LockKeyhole size={30}/></div><p className="eyebrow">YOUR PASSWORDS. YOUR CONTROL.</p>
         <h1>{pending ? '打开加密备份' : stored ? '欢迎回来' : '给你的密码，一个安全的家'}</h1><p className="muted">{pending ? '使用备份文件的主密码解锁。' : stored ? '输入主密码，解锁此设备上的保险库。' : '没有账号，没有云端。只有你和你的主密码。'}</p>
-        <form onSubmit={unlock}><label>主密码<input autoFocus type="password" autoComplete={stored || pending ? 'current-password':'new-password'} value={password} onChange={e=>setPassword(e.target.value)} required placeholder={stored || pending ? '输入主密码' : '至少 12 个字符，建议使用长口令'} maxLength={1024}/></label>
+        <form onSubmit={unlock}><label>主密码<input autoFocus id="master-password" aria-describedby={!stored && !pending ? 'master-password-hint' : undefined} type="password" autoComplete={stored || pending ? 'current-password':'new-password'} value={password} onChange={e=>setPassword(e.target.value)} required placeholder={stored || pending ? '输入主密码' : '至少 12 位，含大小写字母和数字'} maxLength={1024}/></label>
           {!stored && !pending && <label>再次输入主密码<input type="password" autoComplete="new-password" value={confirmPassword} onChange={e=>setConfirmPassword(e.target.value)} required/></label>}
+          {!stored && !pending && <p className="password-hint" id="master-password-hint">主密码至少 12 位，且同时包含大写字母、小写字母和数字。</p>}
           <button className="primary wide" disabled={busy || (startupError && !pending)}>{busy ? '正在派生密钥…' : pending || stored ? '解锁保险库' : '创建保险库'}<ArrowRight size={18}/></button>
         </form><div className="gate-actions"><button onClick={()=>fileRef.current?.click()} disabled={busy}><Upload size={16}/>导入加密文件</button>{stored && <button onClick={exportFile} disabled={busy}><Download size={16}/>导出备份</button>}{pending && <button onClick={()=>{setPending(null);setPassword('');}}>取消导入</button>}</div>
         <div className="security-note"><ShieldCheck size={18}/><span>Argon2id + AES-256-GCM · 仅在你的浏览器中解密</span></div>

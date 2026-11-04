@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-const master = 'correct horse battery staple';
+const master = 'Correct horse battery 2026';
 test('CRUD, category filtering, encrypted persistence, lock, backup and import', async ({page}) => {
   await page.goto('/');
   await page.getByLabel('主密码',{exact:true}).fill(master);
@@ -19,7 +19,7 @@ test('CRUD, category filtering, encrypted persistence, lock, backup and import',
   await page.getByLabel('名称',{exact:true}).fill('Test account');
   await page.getByLabel('账号',{exact:true}).fill('alice@example.com');
   await page.getByLabel('密码',{exact:true}).fill('secret-entry-password');
-  await page.getByLabel('分类',{exact:true}).selectOption({label:'团队'});
+  await page.getByRole('combobox',{name:'分类',exact:true}).selectOption({label:'团队'});
   await page.getByRole('button',{name:'加密保存'}).click();
   await expect(page.getByRole('button',{name:'编辑 Test account',exact:true})).toBeVisible();
   expect(await page.evaluate(()=>localStorage.getItem('quiet-vault.v1'))).not.toContain('secret-entry-password');
@@ -31,9 +31,9 @@ test('CRUD, category filtering, encrypted persistence, lock, backup and import',
   await page.getByLabel('名称',{exact:true}).fill('Updated account');
   await page.getByRole('button',{name:'加密保存'}).click();
   await expect(page.getByRole('button',{name:'编辑 Updated account',exact:true})).toBeVisible();
-  await page.getByRole('button',{name:'未分类 0',exact:true}).click();
+  await page.getByRole('button',{name:'未分类 (0)',exact:true}).click();
   await expect(page.getByText('从第一个密码开始')).toBeVisible();
-  await page.getByRole('button',{name:'所有密码 1',exact:true}).click();
+  await page.getByRole('button',{name:'所有密码 (1)',exact:true}).click();
   const download = page.waitForEvent('download');
   await page.getByRole('button',{name:'导出备份',exact:true}).click();
   const file = await download; const path = await file.path();
@@ -56,7 +56,7 @@ test('CRUD, category filtering, encrypted persistence, lock, backup and import',
   await page.getByRole('button',{name:'删除分类 团队'}).click();
   await expect(page.getByRole('button',{name:'删除分类 团队'})).toHaveCount(0);
   await page.getByRole('button',{name:'关闭弹窗'}).click();
-  await page.getByRole('button',{name:'未分类 1',exact:true}).click();
+  await page.getByRole('button',{name:'未分类 (1)',exact:true}).click();
   await expect(page.getByRole('button',{name:'编辑 Updated account',exact:true})).toBeVisible();
   await page.getByRole('button',{name:'编辑 Updated account',exact:true}).click();
   await page.getByRole('button',{name:'删除',exact:true}).click();
@@ -90,4 +90,30 @@ test('hiding during key derivation cancels unlock', async ({page}) => {
   await expect(page.getByRole('button',{name:'解锁保险库'})).toBeEnabled();
   await expect(page.getByRole('heading',{name:'欢迎回来'})).toBeVisible();
   await expect(page.getByRole('heading',{name:/所有密码/})).toHaveCount(0);
+});
+test('requires a strong master password when creating a vault', async ({page}) => {
+  await page.goto('/');
+  const password = page.getByLabel('主密码',{exact:true});
+  const confirm = page.getByLabel('再次输入主密码');
+  const create = page.getByRole('button',{name:'创建保险库'});
+  const weak: [string, string][] = [
+    ['Short1A', '至少需要 12 个字符'],
+    ['all-lowercase-123', '大写字母'],
+    ['ALL-UPPERCASE-123', '小写字母'],
+    ['NoDigitsHere!', '数字'],
+  ];
+  for (const [value, message] of weak) {
+    await password.fill(value);
+    await confirm.fill(value);
+    await create.click();
+    await expect(page.getByRole('alert')).toContainText(message);
+  }
+  await password.fill(master);
+  await confirm.fill(master + 'X');
+  await create.click();
+  await expect(page.getByRole('alert')).toContainText('不一致');
+  expect(await page.evaluate(()=>localStorage.getItem('quiet-vault.v1'))).toBeNull();
+  await confirm.fill(master);
+  await create.click();
+  await expect(page.getByRole('heading',{name:/所有密码/})).toBeVisible();
 });

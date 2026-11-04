@@ -1,8 +1,8 @@
 import { describe, it, expect } from 'vitest';
-import { createVault, openVault, seal, parseEnvelope, validateVault, MAX_FILE_SIZE } from './vault';
+import { createVault, openVault, seal, parseEnvelope, validateVault, masterPasswordProblem, MAX_FILE_SIZE } from './vault';
 describe('encrypted vault', () => {
   it('round trips data, randomizes salt/IV, never serializes plaintext or password', async () => {
-    const password = 'a long test passphrase';
+    const password = 'A long test passphrase 2026';
     const a = await createVault(password);
     const b = await createVault(password);
     expect(a.envelope.salt).not.toBe(b.envelope.salt);
@@ -15,13 +15,13 @@ describe('encrypted vault', () => {
     expect(a.key.extractable).toBe(false);
   });
   it('rejects wrong passwords and ciphertext tampering', async () => {
-    const {envelope} = await createVault('test password long enough');
+    const {envelope} = await createVault('Test password long enough 1');
     await expect(openVault(envelope,'wrong')).rejects.toThrow('无法解锁');
     const altered = {...envelope,ciphertext:(envelope.ciphertext[0]==='A'?'B':'A')+envelope.ciphertext.slice(1)};
-    await expect(openVault(altered,'test password long enough')).rejects.toThrow('无法解锁');
+    await expect(openVault(altered,'Test password long enough 1')).rejects.toThrow('无法解锁');
   });
   it('rejects invalid or expensive parameters before invoking KDF', async () => {
-    const {envelope} = await createVault('test password long enough');
+    const {envelope} = await createVault('Test password long enough 1');
     expect(()=>parseEnvelope(JSON.stringify({...envelope, kdf:{...envelope.kdf,memorySize:2**30}}))).toThrow('参数');
     expect(()=>parseEnvelope(JSON.stringify({...envelope,iv:'AAAA'}))).toThrow();
     expect(()=>parseEnvelope('x'.repeat(MAX_FILE_SIZE+1))).toThrow('5 MB');
@@ -32,5 +32,15 @@ describe('encrypted vault', () => {
     expect(()=>validateVault({categories:[],entries:[{id:'1'}]})).toThrow();
     expect(()=>validateVault({categories:[{id:'a',name:'A'},{id:'a',name:'B'}],entries:[]})).toThrow();
     expect(()=>validateVault({categories:[],entries:[{id:'1',title:'test',username:'',password:'p',url:'',notes:'',categoryId:'missing',updatedAt:''}]})).toThrow();
+  });
+});
+describe('master password policy', () => {
+  it('requires 12+ characters with upper, lower and digit', async () => {
+    expect(masterPasswordProblem('Short1A')).toContain('12');
+    expect(masterPasswordProblem('all-lowercase-123')).toContain('大写');
+    expect(masterPasswordProblem('ALL-UPPERCASE-123')).toContain('小写');
+    expect(masterPasswordProblem('No digits here!')).toContain('数字');
+    expect(masterPasswordProblem('GoodPassw0rd')).toBeNull();
+    await expect(createVault('all-lowercase-123')).rejects.toThrow('大写');
   });
 });

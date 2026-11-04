@@ -39,3 +39,15 @@ Current verification supersedes the initial dependency-related limitations above
 - `npm run test:e2e` cannot start the Vite test server: sandbox denies listening on `127.0.0.1:4173` (`EPERM`).
 - A separate attempt to load the production build through Playwright request routing also failed at Chromium startup due to a macOS MachPort permission denial. No browser screenshot or responsive visual acceptance is claimed.
 - The pre-existing untracked `pnpm-lock.yaml` was preserved and is outside this UI commit.
+
+## Master password policy and open-source release — 2026-11-04
+
+Creating a vault now requires a master password of at least 12 characters containing uppercase letters, lowercase letters and digits. Unlocking existing vaults and importing backups are unaffected, so vaults created under the previous rules remain usable. Unit tests and Playwright e2e coverage were added for the policy.
+
+Final verification:
+
+- `npm run build`: passes (TypeScript project check and production bundling).
+- `npm test`: 2 files, 7/7 tests pass.
+- `npm run test:e2e`: 8/8 pass across desktop and mobile, including the master password policy test.
+- The earlier Vite server EPERM and Chromium MachPort limitations did not recur in this local run.
+

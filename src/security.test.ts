@@ -4,7 +4,7 @@ import { createVault, openVault, parseEnvelope, seal } from './vault';
 // Local exercises use synthetic secrets only; no network or real browser vault.
 describe('security boundary exercises', () => {
   it('a stolen backup permits offline guesses even for a 12-character password', async () => {
-    const master = '123456789012';
+    const master = 'Password1234';
     const original = await createVault(master);
     const vault = { categories: [], entries: [{ id: 'demo', title: 'Synthetic account', username: 'demo', password: 'synthetic-secret', url: '', notes: '', categoryId: '', updatedAt: '' }] };
     const stolen = JSON.stringify(await seal(vault, original.key, original.envelope.salt));
@@ -17,7 +17,7 @@ describe('security boundary exercises', () => {
   });
 
   it('an authentic older envelope still decrypts after a newer save', async () => {
-    const master = 'synthetic long master phrase';
+    const master = 'Synthetic long master phrase 1';
     const original = await createVault(master);
     const newer = await seal({ categories: [{ id: 'new', name: 'New category' }], entries: [] }, original.key, original.envelope.salt);
     expect((await openVault(newer, master)).vault.categories).toHaveLength(1);

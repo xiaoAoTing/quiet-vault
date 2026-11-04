@@ -5,6 +5,14 @@ export type Vault = { categories: Category[]; entries: Entry[] };
 const params = { algorithm: 'Argon2id', memorySize: 65536, iterations: 3, parallelism: 1 } as const;
 export type Envelope = { format: 'quiet-vault'; version: 1; kdf: typeof params; salt: string; iv: string; ciphertext: string };
 export const MAX_FILE_SIZE = 5 * 1024 * 1024;
+export const MASTER_PASSWORD_MIN_LENGTH = 12;
+export function masterPasswordProblem(password: string): string | null {
+  if (password.length < MASTER_PASSWORD_MIN_LENGTH) return `主密码至少需要 ${MASTER_PASSWORD_MIN_LENGTH} 个字符`;
+  if (!/[a-z]/.test(password)) return '主密码需要包含小写字母';
+  if (!/[A-Z]/.test(password)) return '主密码需要包含大写字母';
+  if (!/[0-9]/.test(password)) return '主密码需要包含数字';
+  return null;
+}
 const encoder = new TextEncoder();
 const aad = encoder.encode('quiet-vault:1');
 export const emptyVault = (): Vault => ({ categories: [], entries: [] });
@@ -49,6 +57,8 @@ export async function seal(vault: Vault, key: CryptoKey, salt: string): Promise<
   } finally { plain.fill(0); }
 }
 export async function createVault(password: string) {
+  const problem = masterPasswordProblem(password);
+  if (problem) throw new Error(problem);
   const salt = crypto.getRandomValues(new Uint8Array(16));
   const key = await deriveKey(password, salt);
   const vault = emptyVault();
