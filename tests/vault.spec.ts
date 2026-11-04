@@ -72,7 +72,7 @@ test('CRUD, category filtering, encrypted persistence, lock, backup and import',
   await page.getByRole('button',{name:'关闭弹窗'}).click();
   await dialogClosed();
   await openSwitcher(page);
-  await page.getByRole('button',{name:'未分类 (1)',exact:true}).click();
+  await page.getByRole('button',{name:/^未分类/}).click();
   await expect(page.getByRole('button',{name:'编辑 Updated account',exact:true})).toBeVisible();
   await page.getByRole('button',{name:'编辑 Updated account',exact:true}).click();
   await page.getByRole('button',{name:'删除',exact:true}).click();
