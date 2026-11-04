@@ -11,12 +11,13 @@ npm install
 npm run dev
 ```
 
-浏览器打开终端输出的 localhost 地址。生产构建：
+浏览器打开终端输出的 localhost 地址。生产构建会把 HTML、脚本和样式合并为一个 `dist/index.html`，可复制到其他设备：
 
 ```sh
 npm run build
-npm run preview
 ```
+
+`file://` 直接打开在不同手机浏览器中的存储行为不一致。需要可靠保存时，请通过 HTTPS 网站访问，或在本机启动只绑定 `127.0.0.1` 的静态文件服务后打开该文件。主屏幕快捷方式和离线 PWA 仍需 HTTPS 网站；当前项目没有 Service Worker 离线缓存。
 
 可将 `dist/` 部署到任意可信 HTTPS 静态站点，包括 Vercel。不要将备份文件放入 `public/`、源码仓库或部署产物。仓库忽略 `*.qvault` 和 `.env*`。应用不包含 GitHub Token，也不提供上传功能。
 
