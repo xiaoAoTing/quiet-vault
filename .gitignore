@@ -5,3 +5,4 @@ test-results/
 *.qvault
 .env*
 .DS_Store
+/server.log
