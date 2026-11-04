@@ -1,12 +1,21 @@
-import { test, expect } from '@playwright/test';
+import { test, expect, type Page } from '@playwright/test';
 const master = 'Correct horse battery 2026';
+async function openSwitcher(page: Page) {
+  await page.getByRole('button',{name:/切换分类/}).click();
+  await expect(page.getByRole('button',{name:'管理分类',exact:true})).toBeVisible();
+}
+async function manageCategories(page: Page) {
+  await openSwitcher(page);
+  await page.getByRole('button',{name:'管理分类',exact:true}).click();
+}
 test('CRUD, category filtering, encrypted persistence, lock, backup and import', async ({page}) => {
+  const dialogClosed = () => expect(page.locator('dialog')).toHaveCount(0);
   await page.goto('/');
   await page.getByLabel('主密码',{exact:true}).fill(master);
   await page.getByLabel('再次输入主密码').fill(master);
   await page.getByRole('button',{name:'创建保险库'}).click();
   await expect(page.getByRole('heading',{name:/所有密码/})).toBeVisible();
-  await page.locator('header').getByRole('button',{name:'分类',exact:true}).click();
+  await manageCategories(page);
   await page.getByLabel('新分类名称').fill('工作');
   await page.getByRole('button',{name:'添加分类',exact:true}).click();
   await expect(page.getByRole('button',{name:'编辑分类 工作'})).toBeVisible();
@@ -15,6 +24,7 @@ test('CRUD, category filtering, encrypted persistence, lock, backup and import',
   await page.getByRole('button',{name:'保存分类',exact:true}).click();
   await expect(page.getByRole('button',{name:'编辑分类 团队'})).toBeVisible();
   await page.getByRole('button',{name:'关闭弹窗'}).click();
+  await dialogClosed();
   await page.getByRole('button',{name:'新增密码',exact:true}).click();
   await page.getByLabel('名称',{exact:true}).fill('Test account');
   await page.getByLabel('账号',{exact:true}).fill('alice@example.com');
@@ -22,6 +32,7 @@ test('CRUD, category filtering, encrypted persistence, lock, backup and import',
   await page.getByRole('combobox',{name:'分类',exact:true}).selectOption({label:'团队'});
   await page.getByRole('button',{name:'加密保存'}).click();
   await expect(page.getByRole('button',{name:'编辑 Test account',exact:true})).toBeVisible();
+  await dialogClosed();
   expect(await page.evaluate(()=>localStorage.getItem('quiet-vault.v1'))).not.toContain('secret-entry-password');
   expect(await page.evaluate(()=>localStorage.getItem('quiet-vault.v1'))).not.toContain('alice@example.com');
   await page.getByLabel('搜索密码').fill('unmatched');
@@ -31,8 +42,11 @@ test('CRUD, category filtering, encrypted persistence, lock, backup and import',
   await page.getByLabel('名称',{exact:true}).fill('Updated account');
   await page.getByRole('button',{name:'加密保存'}).click();
   await expect(page.getByRole('button',{name:'编辑 Updated account',exact:true})).toBeVisible();
+  await dialogClosed();
+  await openSwitcher(page);
   await page.getByRole('button',{name:'未分类 (0)',exact:true}).click();
   await expect(page.getByText('从第一个密码开始')).toBeVisible();
+  await openSwitcher(page);
   await page.getByRole('button',{name:'所有密码 (1)',exact:true}).click();
   const download = page.waitForEvent('download');
   await page.getByRole('button',{name:'导出备份',exact:true}).click();
@@ -52,14 +66,17 @@ test('CRUD, category filtering, encrypted persistence, lock, backup and import',
   await page.getByLabel('主密码',{exact:true}).fill(master);
   await page.getByRole('button',{name:'解锁保险库'}).click();
   await expect(page.getByRole('button',{name:'编辑 Updated account',exact:true})).toBeVisible();
-  await page.locator('header').getByRole('button',{name:'分类',exact:true}).click();
+  await manageCategories(page);
   await page.getByRole('button',{name:'删除分类 团队'}).click();
   await expect(page.getByRole('button',{name:'删除分类 团队'})).toHaveCount(0);
   await page.getByRole('button',{name:'关闭弹窗'}).click();
+  await dialogClosed();
+  await openSwitcher(page);
   await page.getByRole('button',{name:'未分类 (1)',exact:true}).click();
   await expect(page.getByRole('button',{name:'编辑 Updated account',exact:true})).toBeVisible();
   await page.getByRole('button',{name:'编辑 Updated account',exact:true}).click();
   await page.getByRole('button',{name:'删除',exact:true}).click();
+  await dialogClosed();
   await expect(page.getByText('从第一个密码开始')).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth)).toBe(true);
 });
