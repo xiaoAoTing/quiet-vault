@@ -313,7 +313,7 @@ function App() {
               <time className="entry-date" dateTime={e.updatedAt} title={`更新时间：${e.updatedAt}`} aria-label={`更新时间：${e.updatedAt}`}>{/^\d{4}-\d{2}-\d{2}/.test(e.updatedAt) ? e.updatedAt.slice(0,10) : '—'}</time>
               <button className="entry-main" onClick={selecting ? ()=>toggleSelected(e.id) : ()=>{setEditor({...e});setRevealed(false);}} aria-pressed={selecting ? isSelected : undefined}><strong>{entryLabel(e)}</strong>{entrySubtitle(e) && <span>{entrySubtitle(e)}</span>}{e.notes?.trim() && <span className="entry-notes">{e.notes}</span>}</button>
               {selecting ? <span className={`tag${name?'':' unset'}${category?.icon?' with-icon':''}`}>{category && <CategoryIcon icon={category.icon} size={12}/>}{name ?? '未分类'}</span> : <button type="button" className={`tag tag-button${name?'':' unset'}${category?.icon?' with-icon':''}`} aria-haspopup="true" aria-expanded={menu?.ids.length===1 && menu.ids[0]===e.id} aria-label={`修改分类：${entryLabel(e)}，当前 ${name ?? '未分类'}`} onClick={ev=>{const anchor=ev.currentTarget;setMenu(menu?.anchor===anchor?null:{ ids:[e.id], current:e.categoryId, anchor });}}>{category && <CategoryIcon icon={category.icon} size={12}/>}{name ?? '未分类'}</button>}
-              {!selecting && <><button className="icon-button" aria-label={`复制 ${entryLabel(e)} 的名称、账号、密码和备注`} onClick={()=>void copy(entryClipboard(e))}><Copy size={18}/></button><button className="icon-button" aria-label={`编辑 ${entryLabel(e)}`} onClick={()=>{setEditor({...e});setRevealed(false);}}><Pencil size={17}/></button></>}
+              {!selecting && <button className="icon-button" aria-label={`复制 ${entryLabel(e)} 的名称、账号、密码和备注`} onClick={()=>void copy(entryClipboard(e))}><Copy size={18}/></button>}
             </article>;
           }) : <div className="empty"><div className="empty-icon"><KeyRound size={30}/></div><h2>{query ? '没有匹配的密码' : filter === '' ? '没有未分类的密码' : '从第一个密码开始'}</h2><p>{query ? '试试其他关键词，或选择其他分类。' : filter === '' ? '所有密码都已归类。' : '添加登录信息，或导入已有的加密备份。'}</p>{!query && filter !== '' && <button onClick={()=>{setEditor({...blankEntry(),categoryId:filter==='*'?'':filter});setRevealed(false);}}><Plus size={17}/>添加密码</button>}</div>}</section>
           </>}
@@ -394,7 +394,7 @@ function AboutPage() {
     <section className="about-card">
       <h2>怎么用</h2>
       <ol className="about-steps">
-        <li><div><strong>新增与编辑</strong><span>点击「新增密码」填写名称、账号和密码，可同时选择分类；点条目或铅笔图标即可修改，删除也在编辑窗口里。</span></div></li>
+        <li><div><strong>新增与编辑</strong><span>点击「新增密码」填写名称、账号和密码，可同时选择分类；点条目即可修改，删除也在编辑窗口里。</span></div></li>
         <li><div><strong>搜索与分类</strong><span>顶部搜索框支持名称、账号和分类；点条目右侧的分类标签可快速归类，「未分类」中还能勾选多条批量归类。</span></div></li>
         <li><div><strong>复制信息</strong><span>点复制按钮会一次性复制名称、账号、密码和备注。粘贴使用后，请记得清理剪贴板。</span></div></li>
         <li><div><strong>备份与迁移</strong><span>「导出备份」会下载一份加密文件；换设备或浏览器时用「导入」选择该文件，再输入主密码即可恢复。</span></div></li>

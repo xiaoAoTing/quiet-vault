@@ -6,6 +6,10 @@ async function openSidebar(page: Page) {
 async function manageCategories(page: Page) {
   await page.getByRole('button',{name:'管理分类',exact:true}).click();
 }
+const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+function entryButton(page: Page, label: string) {
+  return page.getByRole('button',{name:new RegExp(`^${escapeRegExp(label)}( |$)`)});
+}
 test('CRUD, category filtering, encrypted persistence, lock, backup and import', async ({page}) => {
   const dialogClosed = () => expect(page.locator('dialog')).toHaveCount(0);
   await page.goto('/');
@@ -30,17 +34,17 @@ test('CRUD, category filtering, encrypted persistence, lock, backup and import',
   await page.getByLabel('密码',{exact:true}).fill('secret-entry-password');
   await page.getByRole('dialog').getByRole('button',{name:'团队',exact:true}).click();
   await page.getByRole('button',{name:'加密保存'}).click();
-  await expect(page.getByRole('button',{name:'编辑 alice@example.com',exact:true})).toBeVisible();
+  await expect(entryButton(page,'alice@example.com')).toBeVisible();
   await dialogClosed();
   expect(await page.evaluate(()=>localStorage.getItem('quiet-vault.v1'))).not.toContain('secret-entry-password');
   expect(await page.evaluate(()=>localStorage.getItem('quiet-vault.v1'))).not.toContain('alice@example.com');
   await page.getByLabel('搜索密码').fill('unmatched');
   await expect(page.getByText('没有匹配的密码')).toBeVisible();
   await page.getByLabel('搜索密码').fill('');
-  await page.getByRole('button',{name:'编辑 alice@example.com',exact:true}).click();
+  await entryButton(page,'alice@example.com').click();
   await page.getByLabel('账号',{exact:true}).fill('updated@example.com');
   await page.getByRole('button',{name:'加密保存'}).click();
-  await expect(page.getByRole('button',{name:'编辑 updated@example.com',exact:true})).toBeVisible();
+  await expect(entryButton(page,'updated@example.com')).toBeVisible();
   await dialogClosed();
   await openSidebar(page);
   await page.getByRole('button',{name:'未分类 (0)',exact:true}).click();
@@ -57,16 +61,16 @@ test('CRUD, category filtering, encrypted persistence, lock, backup and import',
   await expect(page.getByRole('alert')).toContainText('无法解锁');
   await page.getByLabel('主密码',{exact:true}).fill(master);
   await page.getByRole('button',{name:'解锁保险库'}).click();
-  await expect(page.getByRole('button',{name:'编辑 updated@example.com',exact:true})).toBeVisible();
+  await expect(entryButton(page,'updated@example.com')).toBeVisible();
   await page.reload();
-  await expect(page.getByRole('button',{name:'编辑 updated@example.com',exact:true})).toBeVisible();
+  await expect(entryButton(page,'updated@example.com')).toBeVisible();
   await expect(page.getByRole('heading',{name:'欢迎回来'})).toHaveCount(0);
   await page.locator('input[type=file]').setInputFiles(path!);
   await expect(page.getByRole('heading',{name:'打开加密备份'})).toBeVisible();
   page.on('dialog',dialog=>dialog.accept());
   await page.getByLabel('主密码',{exact:true}).fill(master);
   await page.getByRole('button',{name:'解锁保险库'}).click();
-  await expect(page.getByRole('button',{name:'编辑 updated@example.com',exact:true})).toBeVisible();
+  await expect(entryButton(page,'updated@example.com')).toBeVisible();
   await manageCategories(page);
   await page.getByRole('button',{name:'删除分类 团队'}).click();
   await expect(page.getByRole('button',{name:'删除分类 团队'})).toHaveCount(0);
@@ -74,8 +78,8 @@ test('CRUD, category filtering, encrypted persistence, lock, backup and import',
   await dialogClosed();
   await openSidebar(page);
   await page.getByRole('button',{name:/^未分类/}).click();
-  await expect(page.getByRole('button',{name:'编辑 updated@example.com',exact:true})).toBeVisible();
-  await page.getByRole('button',{name:'编辑 updated@example.com',exact:true}).click();
+  await expect(entryButton(page,'updated@example.com')).toBeVisible();
+  await entryButton(page,'updated@example.com').click();
   await page.getByRole('button',{name:'删除',exact:true}).click();
   await dialogClosed();
   await expect(page.getByText('没有未分类的密码')).toBeVisible();
@@ -92,7 +96,7 @@ test('categorizes entries inline, creates categories in place and sorts them in 
     await page.getByLabel('账号',{exact:true}).fill(account);
     await page.getByLabel('密码',{exact:true}).fill('secret-entry-password');
     await page.getByRole('button',{name:'加密保存'}).click();
-    await expect(page.getByRole('button',{name:`编辑 ${account}`,exact:true})).toBeVisible();
+    await expect(entryButton(page,account)).toBeVisible();
   }
   // 行内点标签即可归类，并支持顺手建分类
   await page.getByRole('button',{name:'修改分类：a@example.com，当前 未分类'}).click();
@@ -100,7 +104,7 @@ test('categorizes entries inline, creates categories in place and sorts them in 
   await page.getByRole('button',{name:'新建分类「工作」'}).click();
   await expect(page.getByRole('button',{name:'修改分类：a@example.com，当前 工作'})).toBeVisible();
   // 编辑弹窗内直接新建分类
-  await page.getByRole('button',{name:'编辑 b@example.com',exact:true}).click();
+  await entryButton(page,'b@example.com').click();
   await page.getByLabel('新建分类').fill('个人');
   await page.getByLabel('新建分类').press('Enter');
   await expect(page.getByRole('dialog').getByRole('button',{name:'个人',exact:true})).toHaveAttribute('aria-pressed','true');
@@ -212,7 +216,7 @@ test('copies name, account, password and notes from the entry list', async ({pag
   await page.getByLabel('密码',{exact:true}).fill('secret-entry-password');
   await page.getByLabel('备注（非必填）').fill('备用邮箱的恢复码');
   await page.getByRole('button',{name:'加密保存'}).click();
-  await expect(page.getByRole('button',{name:'编辑 备用邮箱',exact:true})).toBeVisible();
+  await expect(entryButton(page,'备用邮箱')).toBeVisible();
   await page.getByRole('button',{name:'复制 备用邮箱 的名称、账号、密码和备注'}).click();
   await expect(page.getByRole('status')).toContainText('已复制');
   expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe('名称：备用邮箱\n账号：alice@example.com\n密码：secret-entry-password\n备注：备用邮箱的恢复码');
@@ -234,14 +238,14 @@ test('saves entries that have no account or password', async ({page, context}) =
   await page.getByLabel('名称',{exact:true}).fill('营业执照');
   await page.getByLabel('备注（非必填）').fill('统一社会信用代码：91440000XXXXXXXXXX\n注册地址：某某区某某街 3 号');
   await page.getByRole('button',{name:'加密保存'}).click();
-  await expect(page.getByRole('button',{name:'编辑 营业执照',exact:true})).toBeVisible();
+  await expect(entryButton(page,'营业执照')).toBeVisible();
   await expect(page.locator('dialog')).toHaveCount(0);
   // 列表不再提示缺少账号
   await expect(page.getByText('未填写账号')).toHaveCount(0);
   await page.getByRole('button',{name:'复制 营业执照 的名称、账号、密码和备注'}).click();
   expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe('名称：营业执照\n备注：统一社会信用代码：91440000XXXXXXXXXX\n注册地址：某某区某某街 3 号');
   await page.reload();
-  await expect(page.getByRole('button',{name:'编辑 营业执照',exact:true})).toBeVisible();
+  await expect(entryButton(page,'营业执照')).toBeVisible();
   // 账号、密码、名称、备注全空时不保存
   await page.getByRole('button',{name:'新增密码',exact:true}).click();
   await page.getByRole('button',{name:'加密保存'}).click();
@@ -265,7 +269,7 @@ test('suggests existing names in the name field and supports keyboard and mouse 
   await page.getByLabel('账号',{exact:true}).fill('first@example.com');
   await page.getByLabel('密码',{exact:true}).fill('secret-entry-password');
   await page.getByRole('button',{name:'加密保存'}).click();
-  await expect(page.getByRole('button',{name:'编辑 AppleID',exact:true})).toBeVisible();
+  await expect(entryButton(page,'AppleID')).toBeVisible();
 
   await page.getByRole('button',{name:'新增密码',exact:true}).click();
   const name = page.getByLabel('名称',{exact:true});
@@ -318,16 +322,16 @@ test('stores an optional note per entry and keeps it across reload', async ({pag
   await page.getByLabel('密码',{exact:true}).fill('secret-entry-password');
   await page.getByLabel('备注（非必填）').fill('安全问题：第一只宠物\n恢复码在保险箱');
   await page.getByRole('button',{name:'加密保存'}).click();
-  await expect(page.getByRole('button',{name:'编辑 备用邮箱',exact:true})).toBeVisible();
+  await expect(entryButton(page,'备用邮箱')).toBeVisible();
   // 列表完整展示备注：多行内容不被省略号截断
   const note = page.locator('.entry-notes');
   await expect(note).toHaveText(/安全问题：第一只宠物\s*恢复码在保险箱/);
   expect(await note.evaluate(el => el.scrollWidth <= el.clientWidth + 1 && el.scrollHeight <= el.clientHeight + 1)).toBe(true);
-  await page.getByRole('button',{name:'编辑 备用邮箱',exact:true}).click();
+  await entryButton(page,'备用邮箱').click();
   await expect(page.getByLabel('备注（非必填）')).toHaveValue('安全问题：第一只宠物\n恢复码在保险箱');
   await page.getByRole('button',{name:'关闭弹窗'}).click();
   await page.reload();
-  await page.getByRole('button',{name:'编辑 备用邮箱',exact:true}).click();
+  await entryButton(page,'备用邮箱').click();
   await expect(page.getByLabel('备注（非必填）')).toHaveValue('安全问题：第一只宠物\n恢复码在保险箱');
   await page.getByRole('button',{name:'关闭弹窗'}).click();
   // 备注非必填：不填写也能保存
@@ -346,13 +350,13 @@ test('drops blank lines from notes when saving', async ({page}) => {
   await page.getByLabel('名称',{exact:true}).fill('备用邮箱');
   await page.getByLabel('备注（非必填）').fill('\n安全问题：第一只宠物\n\n   \n恢复码在保险箱\n\n');
   await page.getByRole('button',{name:'加密保存'}).click();
-  await expect(page.getByRole('button',{name:'编辑 备用邮箱',exact:true})).toBeVisible();
-  await page.getByRole('button',{name:'编辑 备用邮箱',exact:true}).click();
+  await expect(entryButton(page,'备用邮箱')).toBeVisible();
+  await entryButton(page,'备用邮箱').click();
   await expect(page.getByLabel('备注（非必填）')).toHaveValue('安全问题：第一只宠物\n恢复码在保险箱');
   await page.getByRole('button',{name:'关闭弹窗'}).click();
   // 重新加载后保存的备注仍没有空行
   await page.reload();
-  await page.getByRole('button',{name:'编辑 备用邮箱',exact:true}).click();
+  await entryButton(page,'备用邮箱').click();
   await expect(page.getByLabel('备注（非必填）')).toHaveValue('安全问题：第一只宠物\n恢复码在保险箱');
 });
 test('requires a strong master password when creating a vault', async ({page}) => {
@@ -392,19 +396,19 @@ test('saves the entry with the Cmd/Ctrl+S shortcut', async ({page}) => {
   await page.getByLabel('账号',{exact:true}).fill('shortcut@example.com');
   await page.getByLabel('密码',{exact:true}).fill('secret-entry-password');
   await page.keyboard.press('ControlOrMeta+s');
-  await expect(page.getByRole('button',{name:'编辑 shortcut@example.com',exact:true})).toBeVisible();
+  await expect(entryButton(page,'shortcut@example.com')).toBeVisible();
   await expect(page.locator('dialog')).toHaveCount(0);
   // 编辑已有条目时同样生效
-  await page.getByRole('button',{name:'编辑 shortcut@example.com',exact:true}).click();
+  await entryButton(page,'shortcut@example.com').click();
   await page.getByLabel('账号',{exact:true}).fill('saved@example.com');
   await page.keyboard.press('ControlOrMeta+s');
-  await expect(page.getByRole('button',{name:'编辑 saved@example.com',exact:true})).toBeVisible();
+  await expect(entryButton(page,'saved@example.com')).toBeVisible();
   await expect(page.locator('dialog')).toHaveCount(0);
   // 密码非必填：只填账号也能保存
   await page.getByRole('button',{name:'新增密码',exact:true}).click();
   await page.getByLabel('账号',{exact:true}).fill('no-password@example.com');
   await page.keyboard.press('ControlOrMeta+s');
-  await expect(page.getByRole('button',{name:'编辑 no-password@example.com',exact:true})).toBeVisible();
+  await expect(entryButton(page,'no-password@example.com')).toBeVisible();
   await expect(page.locator('dialog')).toHaveCount(0);
   // 所有字段都为空时快捷键不会提交
   await page.getByRole('button',{name:'新增密码',exact:true}).click();
