@@ -359,6 +359,7 @@ function App() {
         </nav>
         <div className="sidebar-tools">
           <button type="button" className={view==='about'?'sidebar-link active':'sidebar-link'} aria-current={view==='about'?'page':undefined} onClick={openAbout}><Info size={15}/>简介</button>
+          <button type="button" className="sidebar-link" onClick={()=>setCategoryEditor({name:'',icon:DEFAULT_CATEGORY_ICON})}><Plus size={15}/>新建分类</button>
           <button type="button" className="sidebar-link" onClick={()=>setCategoriesOpen(true)}><Pencil size={15}/>管理分类</button>
         </div>
       </aside>
@@ -430,8 +431,7 @@ function App() {
       {vault.categories.length > 0 && <label>查找分类<input value={categoryQuery} onChange={e=>setCategoryQuery(e.target.value)} placeholder="输入分类名称…"/></label>}
       {vault.categories.length > 0 && <div className="category-list">{vault.categories.filter(c=>c.name.toLocaleLowerCase().includes(categoryQuery.trim().toLocaleLowerCase())).map(c=><div key={c.id}><CategoryIcon icon={c.icon} size={17}/><span>{c.name}</span><button aria-label={`编辑分类 ${c.name}`} disabled={busy} onClick={()=>setCategoryEditor({id:c.id,name:c.name,icon:c.icon ?? DEFAULT_CATEGORY_ICON})}><Pencil size={17}/></button><button className="danger" aria-label={`删除分类 ${c.name}`} disabled={busy} onClick={()=>{if(confirm(`删除分类「${c.name}」？条目将移至未分类。`))void save({categories:vault.categories.filter(x=>x.id!==c.id),entries:vault.entries.map(e=>e.categoryId===c.id?{...e,categoryId:''}:e)},()=>{if(filter===c.id)changeFilter('');});}}><Trash2 size={17}/></button></div>)}</div>}
       {vault.categories.length > 0 && !vault.categories.some(c=>c.name.toLocaleLowerCase().includes(categoryQuery.trim().toLocaleLowerCase())) && <p className="category-list-empty">没有匹配的分类。</p>}
-      {!vault.categories.length && <p className="category-list-empty">还没有分类。新建一个，把密码分门别类。</p>}
-      <div className="category-list-actions"><button type="button" className="primary" disabled={busy} onClick={()=>setCategoryEditor({name:'',icon:DEFAULT_CATEGORY_ICON})}><Plus size={17}/>新建分类</button></div>
+      {!vault.categories.length && <p className="category-list-empty">还没有分类。关闭本窗口后，点击侧边栏的「新建分类」创建。</p>}
     </Modal>}
     {categoryEditor && vault && <Modal error={error} className="modal-compact" title={categoryEditor.id ? '编辑分类' : '新建分类'} icon={categoryEditor.id ? <Pencil size={18}/> : <Folder size={18}/>} close={()=>setCategoryEditor(null)} disabled={busy}>
       {requestClose => (

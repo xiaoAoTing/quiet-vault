@@ -20,10 +20,12 @@ test('CRUD, category filtering, encrypted persistence, lock, backup and import',
   await page.getByLabel('再次输入主密码').fill(master);
   await page.getByRole('button',{name:'创建保险库'}).click();
   await expect(page.getByRole('button',{name:'新增密码',exact:true})).toBeVisible();
-  await manageCategories(page);
+  await expect(page.getByRole('button',{name:'新建分类',exact:true})).toBeVisible();
   await page.getByRole('button',{name:'新建分类',exact:true}).click();
   await page.getByLabel('分类名称').fill('工作');
   await page.getByRole('button',{name:'创建分类',exact:true}).click();
+  await dialogClosed();
+  await manageCategories(page);
   await expect(page.getByRole('button',{name:'编辑分类 工作'})).toBeVisible();
   await page.getByRole('button',{name:'编辑分类 工作'}).click();
   await page.getByLabel('分类名称').fill('团队');
@@ -135,13 +137,9 @@ test('drags an entry by its left handle onto a category', async ({page}, testInf
   await page.getByLabel('再次输入主密码').fill(master);
   await page.getByRole('button',{name:'创建保险库'}).click();
   await expect(page.getByRole('button',{name:'新增密码',exact:true})).toBeVisible();
-  await manageCategories(page);
   await page.getByRole('button',{name:'新建分类',exact:true}).click();
   await page.getByLabel('分类名称').fill('工作');
   await page.getByRole('button',{name:'创建分类',exact:true}).click();
-  await expect(page.getByRole('button',{name:'编辑分类 工作'})).toBeVisible();
-  await dialogCount(page, 1);
-  await page.getByRole('button',{name:'关闭弹窗'}).click();
   await dialogCount(page, 0);
   await page.getByRole('button',{name:'新增密码',exact:true}).click();
   await page.getByLabel('账号',{exact:true}).fill('drag@example.com');
@@ -183,7 +181,6 @@ test('assigns searchable custom category icons, randomizes and persists them', a
   await page.getByLabel('再次输入主密码').fill(master);
   await page.getByRole('button',{name:'创建保险库'}).click();
   await expect(page.getByRole('button',{name:'新增密码',exact:true})).toBeVisible();
-  await manageCategories(page);
   await page.getByRole('button',{name:'新建分类',exact:true}).click();
   await page.getByLabel('分类名称').fill('工作');
   await page.getByLabel('搜索分类图标').fill('邮箱');
@@ -194,6 +191,8 @@ test('assigns searchable custom category icons, randomizes and persists them', a
   await expect(page.locator('.icon-picker-meta span')).not.toHaveText(before!);
   await page.getByRole('button',{name:'使用图标 邮箱'}).click();
   await page.getByRole('button',{name:'创建分类',exact:true}).click();
+  await dialogCount(page, 0);
+  await manageCategories(page);
   await expect(page.getByRole('button',{name:'编辑分类 工作'})).toBeVisible();
   await expect(page.locator('.category-list > div').filter({hasText:'工作'}).locator('svg[data-icon="lucide:mail"]')).toHaveCount(1);
   await page.getByRole('button',{name:'编辑分类 工作'}).click();
