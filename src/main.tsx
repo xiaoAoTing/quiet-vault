@@ -18,7 +18,9 @@ function applyTheme(theme: Theme) {
 }
 const initialTheme = readTheme();
 applyTheme(initialTheme);
-const blankEntry = (): Entry => ({ id: crypto.randomUUID(), title: '', username: '', password: '', url: '', notes: '', categoryId: '', updatedAt: '' });
+const blankEntry = (): Entry => ({ id: crypto.randomUUID(), username: '', password: '', notes: '', categoryId: '', updatedAt: '' });
+function entryLabel(entry: Entry) { return entry.username || entry.notes.split('\n')[0].trim() || '未命名条目'; }
+function entrySubtitle(entry: Entry) { return entry.username ? entry.notes.split('\n')[0].trim() : '未填写账号'; }
 // 备份文件名用设备本地时间，避免 UTC 造成的日期/时刻偏差。
 function localStamp(date = new Date()) {
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -144,7 +146,7 @@ function App() {
   async function copy(value: string) { try { await navigator.clipboard.writeText(value); setNotice('已复制。使用后请清理剪贴板'); } catch { setError('无法访问剪贴板，请显示后手动复制'); } }
   const vault = session?.vault;
   const selected = filter === '*' ? '所有密码' : filter === '' ? '未分类' : vault?.categories.find(c => c.id === filter)?.name ?? '所有密码';
-  const entries = vault?.entries.filter(e => (filter === '*' || e.categoryId === filter) && [e.title,e.username,e.url,e.notes,vault.categories.find(c=>c.id===e.categoryId)?.name ?? '未分类'].join(' ').toLocaleLowerCase().includes(query.toLocaleLowerCase())) ?? [];
+  const entries = vault?.entries.filter(e => (filter === '*' || e.categoryId === filter) && [e.username,e.notes,vault.categories.find(c=>c.id===e.categoryId)?.name ?? '未分类'].join(' ').toLocaleLowerCase().includes(query.toLocaleLowerCase())) ?? [];
   const categoryMatches = vault?.categories.filter(c=>c.name.toLocaleLowerCase().includes(categoryQuery.toLocaleLowerCase())) ?? [];
   return <>
     <input ref={fileRef} type="file" accept={isIOS ? undefined : '.json,.qvault,application/json'} hidden onChange={e => { void importFile(e.target.files?.[0]); e.target.value = ''; }}/>
@@ -175,9 +177,9 @@ function App() {
         </div>}
       </div><button onClick={lock} disabled={busy}><LockKeyhole size={16}/>锁定</button></div></header>
         <div className="content"><div className="page-heading"><div><p className="eyebrow">PRIVATE BY DESIGN</p><h1>{selected}<span>{entries.length}</span></h1><p className="muted">把重要的登录信息，安心放在这里。</p></div><button className="primary" disabled={busy} onClick={()=>{setEditor({...blankEntry(),categoryId:filter==='*'?'':filter});setRevealed(false);}}><Plus size={18}/>新增密码</button></div>
-          <div className="toolbar"><div className="search"><Search size={19}/><input aria-label="搜索密码" placeholder="搜索名称、账号、网址或备注…" value={query} onChange={e=>setQuery(e.target.value)}/></div><div className="file-actions"><button disabled={busy} onClick={()=>fileRef.current?.click()}><Upload size={17}/>导入</button><button disabled={busy} onClick={exportFile}><Download size={17}/>导出备份</button></div></div>
-          <div className="save-status"><span/><span>{busy ? '正在加密保存…':'所有更改已加密保存在此浏览器'}</span><span className="sort-note">按名称排序</span></div>
-          <section className="entry-list" aria-label="密码列表">{entries.length ? entries.sort((a,b)=>a.title.localeCompare(b.title)).map(e=><article className="entry" key={e.id}><time className="entry-date" dateTime={e.updatedAt} title={`更新时间：${e.updatedAt}`} aria-label={`更新时间：${e.updatedAt}`}>{/^\d{4}-\d{2}-\d{2}/.test(e.updatedAt) ? e.updatedAt.slice(0,10) : '—'}</time><button className="entry-main" onClick={()=>{setEditor({...e});setRevealed(false);}}><strong>{e.title}</strong><span>{e.username || e.url || '未填写账号'}</span></button><span className="tag">{vault!.categories.find(c=>c.id===e.categoryId)?.name ?? '未分类'}</span><button className="icon-button" aria-label={`复制 ${e.title} 密码`} onClick={()=>void copy(e.password)}><Copy size={18}/></button><button className="icon-button" aria-label={`编辑 ${e.title}`} onClick={()=>{setEditor({...e});setRevealed(false);}}><Pencil size={17}/></button></article>) : <div className="empty"><div className="empty-icon"><KeyRound size={30}/></div><h2>{query ? '没有匹配的密码' : '从第一个密码开始'}</h2><p>{query ? '试试其他关键词，或选择其他分类。' : '添加登录信息，或导入已有的加密备份。'}</p>{!query && <button onClick={()=>{setEditor({...blankEntry(),categoryId:filter==='*'?'':filter});setRevealed(false);}}><Plus size={17}/>添加密码</button>}</div>}</section>
+          <div className="toolbar"><div className="search"><Search size={19}/><input aria-label="搜索密码" placeholder="搜索账号、备注或分类…" value={query} onChange={e=>setQuery(e.target.value)}/></div><div className="file-actions"><button disabled={busy} onClick={()=>fileRef.current?.click()}><Upload size={17}/>导入</button><button disabled={busy} onClick={exportFile}><Download size={17}/>导出备份</button></div></div>
+          <div className="save-status"><span/><span>{busy ? '正在加密保存…':'所有更改已加密保存在此浏览器'}</span><span className="sort-note">按账号排序</span></div>
+          <section className="entry-list" aria-label="密码列表">{entries.length ? entries.sort((a,b)=>entryLabel(a).localeCompare(entryLabel(b))).map(e=><article className="entry" key={e.id}><time className="entry-date" dateTime={e.updatedAt} title={`更新时间：${e.updatedAt}`} aria-label={`更新时间：${e.updatedAt}`}>{/^\d{4}-\d{2}-\d{2}/.test(e.updatedAt) ? e.updatedAt.slice(0,10) : '—'}</time><button className="entry-main" onClick={()=>{setEditor({...e});setRevealed(false);}}><strong>{entryLabel(e)}</strong>{entrySubtitle(e) && <span>{entrySubtitle(e)}</span>}</button><span className="tag">{vault!.categories.find(c=>c.id===e.categoryId)?.name ?? '未分类'}</span><button className="icon-button" aria-label={`复制 ${entryLabel(e)} 密码`} onClick={()=>void copy(e.password)}><Copy size={18}/></button><button className="icon-button" aria-label={`编辑 ${entryLabel(e)}`} onClick={()=>{setEditor({...e});setRevealed(false);}}><Pencil size={17}/></button></article>) : <div className="empty"><div className="empty-icon"><KeyRound size={30}/></div><h2>{query ? '没有匹配的密码' : '从第一个密码开始'}</h2><p>{query ? '试试其他关键词，或选择其他分类。' : '添加登录信息，或导入已有的加密备份。'}</p>{!query && <button onClick={()=>{setEditor({...blankEntry(),categoryId:filter==='*'?'':filter});setRevealed(false);}}><Plus size={17}/>添加密码</button>}</div>}</section>
           <div className="backup-note"><ShieldCheck size={22}/><div><strong>本地保存，安心掌控</strong><p>浏览器数据可能被清理。定期导出加密备份，在其他设备导入即可继续使用。</p></div><button onClick={exportFile} disabled={busy}>备份保险库<ArrowRight size={17}/></button></div>
           <footer><span><LockKeyhole size={13}/>端到本地加密 · 无后台服务</span><span>闲置 5 分钟自动锁定 · 也可随时手动锁定</span></footer>
         </div>
@@ -185,11 +187,9 @@ function App() {
     </div>}
     {editor && vault && <Modal error={error} title={vault.entries.some(e=>e.id===editor.id)?'编辑密码':'新增密码'} icon={<KeyRound size={18}/>} close={()=>setEditor(null)} disabled={busy}>
       {requestClose => (
-      <form onSubmit={e=>{e.preventDefault();const next={...editor,title:editor.title.trim(),updatedAt:new Date().toISOString()};if(!next.title)return;void save({...vault,entries:[...vault.entries.filter(x=>x.id!==next.id),next]},requestClose);}}>
-        <label>名称<input autoFocus required maxLength={200} value={editor.title} onChange={e=>setEditor({...editor,title:e.target.value})}/></label>
-        <label>账号<input autoComplete="off" maxLength={1000} value={editor.username} onChange={e=>setEditor({...editor,username:e.target.value})}/></label>
+      <form onSubmit={e=>{e.preventDefault();const next={...editor,username:editor.username.trim(),updatedAt:new Date().toISOString()};void save({...vault,entries:[...vault.entries.filter(x=>x.id!==next.id),next]},requestClose);}}>
+        <label>账号<input autoFocus autoComplete="off" maxLength={1000} value={editor.username} onChange={e=>setEditor({...editor,username:e.target.value})}/></label>
         <label>密码<div className="password-field"><input id="entry-password" required type={revealed?'text':'password'} autoComplete="new-password" maxLength={4096} value={editor.password} onChange={e=>setEditor({...editor,password:e.target.value})}/><div className="password-tools"><button type="button" aria-label={revealed?'隐藏密码':'显示密码'} onClick={()=>setRevealed(!revealed)}>{revealed?<EyeOff size={18}/>:<Eye size={18}/>}</button><button type="button" aria-label="复制密码" onClick={()=>void copy(editor.password)}><Copy size={18}/></button></div></div></label>
-        <label>网址<input placeholder="https://example.com" maxLength={2000} value={editor.url} onChange={e=>setEditor({...editor,url:e.target.value})}/></label>
         <label>分类<select value={editor.categoryId} onChange={e=>setEditor({...editor,categoryId:e.target.value})}><option value="">未分类</option>{vault.categories.map(c=><option key={c.id} value={c.id}>{c.name}</option>)}</select></label>
         <label>备注<textarea rows={3} maxLength={10000} value={editor.notes} onChange={e=>setEditor({...editor,notes:e.target.value})}/></label>
         <div className="modal-actions">{vault.entries.some(e=>e.id===editor.id) && <button className="danger" type="button" disabled={busy} onClick={()=>{if(confirm('删除此密码条目？此操作无法撤销。'))void save({...vault,entries:vault.entries.filter(e=>e.id!==editor.id)},requestClose);}}><Trash2 size={16}/>删除</button>}<button className="primary" disabled={busy}>{busy ? <><span className="spinner" aria-hidden="true"/>加密中…</> : '加密保存'}</button></div>

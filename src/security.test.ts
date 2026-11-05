@@ -6,7 +6,7 @@ describe('security boundary exercises', () => {
   it('a stolen backup permits offline guesses even for a 12-character password', async () => {
     const master = 'Password1234';
     const original = await createVault(master);
-    const vault = { categories: [], entries: [{ id: 'demo', title: 'Synthetic account', username: 'demo', password: 'synthetic-secret', url: '', notes: '', categoryId: '', updatedAt: '' }] };
+    const vault = { categories: [], entries: [{ id: 'demo', username: 'demo', password: 'synthetic-secret', notes: '', categoryId: '', updatedAt: '' }] };
     const stolen = JSON.stringify(await seal(vault, original.key, original.envelope.salt));
     let recovered = '';
     for (const guess of ['wrong-password', master]) {
