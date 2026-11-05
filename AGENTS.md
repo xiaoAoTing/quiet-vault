@@ -13,3 +13,10 @@
 - 提交信息使用 Conventional Commits（`feat:`、`fix:`、`style:`、`test:`、`docs:`、`chore:` 等），用英文书写。
 - 不强制推送，不改写已推送的历史。
 - 不提交 `node_modules/`、`dist/`、`test-results/`、`playwright-report/`、`*.qvault`、`quiet-vault-*.json`、`.env*`、`server.log`（已在 `.gitignore` 中忽略）。
+
+## 界面改动自检（必须执行）
+
+- 任何涉及布局、间距、样式或响应式的改动，交付前必须启动 `npm run dev`，用真实浏览器（Playwright）操作页面并截图，不能只靠读代码或类型检查判断完成。
+- 必须用 `boundingBox()` 度量相邻关键元素的实际间距（例如搜索框底边与第一条密码的间距必须大于 0），确认没有被新增或删除的样式规则意外清零；同时检查对齐、溢出与遮挡。
+- 至少覆盖桌面（1280px）与移动端（≤768px）两个视口，并覆盖有数据、空列表、提示条出现等状态。
+- 截图需人工查看确认视觉结果；临时脚本和截图放在 `/tmp`，不要提交到仓库。
