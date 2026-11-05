@@ -59,7 +59,8 @@ test('CRUD, category filtering, encrypted persistence, lock, backup and import',
   await page.getByRole('button',{name:'解锁保险库'}).click();
   await expect(page.getByRole('button',{name:'编辑 updated@example.com',exact:true})).toBeVisible();
   await page.reload();
-  await expect(page.getByRole('heading',{name:'欢迎回来'})).toBeVisible();
+  await expect(page.getByRole('button',{name:'编辑 updated@example.com',exact:true})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'欢迎回来'})).toHaveCount(0);
   await page.locator('input[type=file]').setInputFiles(path!);
   await expect(page.getByRole('heading',{name:'打开加密备份'})).toBeVisible();
   page.on('dialog',dialog=>dialog.accept());
@@ -90,6 +91,22 @@ test('rejects broken imports and preserves existing ciphertext',async({page})=>{
   await page.locator('input[type=file]').setInputFiles({name:'bad.qvault',mimeType:'application/json',buffer:Buffer.from('{}')});
   await expect(page.getByRole('alert')).toContainText('不支持');
   expect(await page.evaluate(()=>localStorage.getItem('quiet-vault.v1'))).toBe(original);
+});
+test('stays unlocked across idle time and refresh, and locks only on demand', async ({page}) => {
+  await page.goto('/');
+  await page.getByLabel('主密码',{exact:true}).fill(master);
+  await page.getByLabel('再次输入主密码').fill(master);
+  await page.getByRole('button',{name:'创建保险库'}).click();
+  await expect(page.getByRole('button',{name:'新增密码',exact:true})).toBeVisible();
+  await page.clock.install();
+  await page.clock.fastForward('10:00');
+  await expect(page.getByRole('button',{name:'新增密码',exact:true})).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole('button',{name:'新增密码',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'锁定',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'欢迎回来'})).toBeVisible();
+  await page.reload();
+  await expect(page.getByRole('heading',{name:'欢迎回来'})).toBeVisible();
 });
 test('keeps the vault unlocked when the page is hidden', async ({page}) => {
   await page.goto('/');

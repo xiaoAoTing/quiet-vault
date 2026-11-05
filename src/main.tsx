@@ -1,10 +1,13 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ShieldCheck, LockKeyhole, Plus, Search, Download, Upload, Folder, KeyRound, Pencil, Trash2, X, Eye, EyeOff, Copy, ArrowRight, Sun, Moon, ChevronDown } from './icons';
-import { createVault, openVault, parseEnvelope, seal, masterPasswordProblem, MAX_FILE_SIZE, type Vault, type Entry, type Envelope } from './vault';
+import { createVault, openVault, decryptVault, parseEnvelope, seal, masterPasswordProblem, MAX_FILE_SIZE, type Vault, type Entry, type Envelope } from './vault';
+import { saveSessionKey, loadSessionKey, clearSessionKey } from './session';
 import './style.css';
 const STORAGE = 'quiet-vault.v1';
 const THEME_KEY = 'quiet-vault.theme';
+// Marker written synchronously on manual lock so a refresh right after locking can never auto-unlock.
+const LOCKED_KEY = 'quiet-vault.locked';
 // iOS document pickers grey out unknown extensions like .qvault, so exports use .json.
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 type Session = { key: CryptoKey; vault: Vault; envelope: Envelope };
@@ -48,35 +51,85 @@ function App() {
   const [categoryId, setCategoryId] = useState('');
   const [revealed, setRevealed] = useState(false);
   const [startupError, setStartupError] = useState(false);
+  const [restoring, setRestoring] = useState(true);
   const [theme, setTheme] = useState<Theme>(initialTheme);
   const fileRef = useRef<HTMLInputElement>(null);
   const version = useRef<string | null>(null);
   const generation = useRef(0);
   function assign(value: Session | null) { sessionRef.current = value; setSession(value); }
   function toggleTheme() { setTheme(value => value === 'dark' ? 'light' : 'dark'); }
-  function lock() {
+  function clearSession() {
     generation.current++;
     assign(null); setEditor(null); setCategoriesOpen(false); setSwitcherOpen(false); setPassword(''); setConfirmPassword(''); setRevealed(false); setQuery(''); setCategoryQuery(''); setCategoryName(''); setCategoryId(''); setPending(null); setFilter('*');
   }
+  // Locking is deliberate: mark it synchronously, then drop the persisted key.
+  function lock() {
+    try { localStorage.setItem(LOCKED_KEY, '1'); } catch {}
+    clearSession();
+    void clearSessionKey().catch(() => {});
+  }
+  async function restoreSession(envelope: Envelope): Promise<Session | null> {
+    let saved: { key: CryptoKey; salt: string } | null = null;
+    try { saved = await loadSessionKey(); } catch { return null; }
+    if (!saved || saved.salt !== envelope.salt) return null;
+    try { return { key: saved.key, vault: await decryptVault(envelope, saved.key), envelope }; }
+    catch { void clearSessionKey().catch(() => {}); return null; }
+  }
+  function readStored(): Envelope | null {
+    const raw = localStorage.getItem(STORAGE);
+    version.current = raw;
+    return raw ? parseEnvelope(raw) : null;
+  }
+  async function reloadFromStorage(): Promise<boolean> {
+    let envelope: Envelope | null;
+    try { envelope = readStored(); }
+    catch { setStartupError(true); setError('另一个标签页写入了无法读取的数据，请导入备份。'); return false; }
+    setStored(envelope); setStartupError(false);
+    const restored = envelope ? await restoreSession(envelope) : null;
+    if (restored) {
+      generation.current++;
+      setEditor(null); setCategoriesOpen(false); setSwitcherOpen(false); setRevealed(false);
+      assign(restored);
+      return true;
+    }
+    clearSession();
+    if (!envelope) void clearSessionKey().catch(() => {});
+    return false;
+  }
   useEffect(() => {
-    try { const raw = localStorage.getItem(STORAGE); version.current = raw; if (raw) setStored(parseEnvelope(raw)); if (!crypto.subtle) setError('当前环境不支持 Web Crypto。请通过 HTTPS 或本机 localhost 打开。'); }
-    catch { setStartupError(true); setError('无法读取浏览器保险库。请保留原始数据并导入备份；不要清理浏览器存储。'); }
-    const changed = (e: StorageEvent) => {
-      if (e.key !== STORAGE && e.key !== null) return;
-      lock();
-      try { const raw = localStorage.getItem(STORAGE); version.current = raw; setStored(raw ? parseEnvelope(raw) : null); setStartupError(false); setError('另一个标签页已更新保险库，请重新解锁。'); }
-      catch { setStartupError(true); setError('另一个标签页写入了无法读取的数据，请导入备份。'); }
+    let cancelled = false;
+    void (async () => {
+      let envelope: Envelope | null = null;
+      try {
+        envelope = readStored();
+        if (!cancelled) setStored(envelope);
+        if (!crypto.subtle) setError('当前环境不支持 Web Crypto。请通过 HTTPS 或本机 localhost 打开。');
+      } catch {
+        if (!cancelled) { setStartupError(true); setError('无法读取浏览器保险库。请保留原始数据并导入备份；不要清理浏览器存储。'); }
+      }
+      let lockedByUser = false;
+      try { lockedByUser = localStorage.getItem(LOCKED_KEY) === '1'; } catch {}
+      if (envelope && !lockedByUser) {
+        const restored = await restoreSession(envelope);
+        if (!cancelled && restored) assign(restored);
+      }
+      if (!cancelled) setRestoring(false);
+    })();
+    const changed = (event: StorageEvent) => {
+      if (event.key === LOCKED_KEY) {
+        if (event.newValue === '1') { clearSession(); setNotice('已在另一个标签页锁定'); }
+        return;
+      }
+      if (event.key !== STORAGE && event.key !== null) return;
+      if (busyRef.current) return;
+      void reloadFromStorage().then(ok => {
+        if (ok) setNotice('另一个标签页已更新保险库，已加载最新版本');
+        else setError('保险库已在其他标签页改变，请重新解锁');
+      });
     };
     window.addEventListener('storage', changed);
-    return () => window.removeEventListener('storage', changed);
+    return () => { cancelled = true; window.removeEventListener('storage', changed); };
   }, []);
-  useEffect(() => {
-    if (!session) return;
-    let timer = window.setTimeout(lock, 5 * 60 * 1000);
-    const reset = () => { clearTimeout(timer); timer = window.setTimeout(lock, 5 * 60 * 1000); };
-    window.addEventListener('pointerdown', reset); window.addEventListener('keydown', reset);
-    return () => { clearTimeout(timer); window.removeEventListener('pointerdown', reset); window.removeEventListener('keydown', reset); };
-  }, [!!session]);
   useEffect(() => { if (!notice) return; const timer = setTimeout(() => setNotice(''), 4000); return () => clearTimeout(timer); }, [notice]);
   useEffect(() => {
     if (!switcherOpen) return;
@@ -96,13 +149,20 @@ function App() {
   }
   async function persist(next: Session, token: number) {
     if (!navigator.locks) throw new Error('当前浏览器不支持安全的多标签页保存，请更新浏览器');
-    return navigator.locks.request(STORAGE, () => {
+    return navigator.locks.request(STORAGE, async () => {
       if (token !== generation.current) return false;
       // Compare immediately before writing: stale tabs must never silently overwrite a newer vault.
-      if (localStorage.getItem(STORAGE) !== version.current) { lock(); setError('保险库已在其他标签页改变，请刷新后重新解锁'); return false; }
+      if (localStorage.getItem(STORAGE) !== version.current) {
+        const reloaded = await reloadFromStorage();
+        setError(reloaded ? '保险库已在其他标签页改变，此次更改未保存' : '保险库已在其他标签页改变，请重新解锁');
+        return false;
+      }
       const raw = JSON.stringify(next.envelope);
       try { localStorage.setItem(STORAGE, raw); } catch { throw new Error('浏览器保存失败（存储已满或被禁用），此次更改未保存'); }
-      version.current = raw; setStored(next.envelope); assign(next); setStartupError(false); return true;
+      version.current = raw; setStored(next.envelope); assign(next); setStartupError(false);
+      // Keep the non-extractable key so a refresh can restore the session without the master password.
+      try { await saveSessionKey(next.key, next.envelope.salt); localStorage.removeItem(LOCKED_KEY); } catch {}
+      return true;
     });
   }
   async function unlock(e: React.FormEvent) {
@@ -133,7 +193,7 @@ function App() {
       if (file.size > MAX_FILE_SIZE) throw new Error('文件不能超过 5 MB');
       const envelope = parseEnvelope(await file.text());
       if (token !== generation.current) return;
-      lock(); setPending(envelope); setNotice('请输入导入文件的主密码；解锁成功前不会替换现有数据');
+      clearSession(); setPending(envelope); setNotice('请输入导入文件的主密码；解锁成功前不会替换现有数据');
     });
   }
   function exportFile() {
@@ -150,7 +210,7 @@ function App() {
   const categoryMatches = vault?.categories.filter(c=>c.name.toLocaleLowerCase().includes(categoryQuery.toLocaleLowerCase())) ?? [];
   return <>
     <input ref={fileRef} type="file" accept={isIOS ? undefined : '.json,.qvault,application/json'} hidden onChange={e => { void importFile(e.target.files?.[0]); e.target.value = ''; }}/>
-    {!session ? <main className="gate">
+    {restoring ? <main className="gate"><section className="gate-card"><div className="lock-emblem"><LockKeyhole size={30}/></div><p className="eyebrow">QUIET VAULT</p><h1>正在解锁…</h1><p className="muted">正在从此设备恢复加密会话。</p></section></main> : !session ? <main className="gate">
       <div className="gate-top"><div className="gate-brand"><ShieldCheck size={30}/><span>quiet vault<span className="brand-dot">.</span></span></div><ThemeToggle theme={theme} onToggle={toggleTheme}/></div>
       <section className="gate-card"><div className="lock-emblem"><LockKeyhole size={30}/></div><p className="eyebrow">YOUR PASSWORDS. YOUR CONTROL.</p>
         <h1>{pending ? '打开加密备份' : stored ? '欢迎回来' : '给你的密码，一个安全的家'}</h1><p className="muted">{pending ? '使用备份文件的主密码解锁。' : stored ? '输入主密码，解锁此设备上的保险库。' : '没有账号，没有云端。只有你和你的主密码。'}</p>
@@ -180,7 +240,7 @@ function App() {
           <div className="save-status"><span/><span>{busy ? '正在加密保存…':'所有更改已加密保存在此浏览器'}</span><span className="sort-note">按账号排序</span></div>
           <section className="entry-list" aria-label="密码列表">{entries.length ? entries.sort((a,b)=>entryLabel(a).localeCompare(entryLabel(b))).map(e=><article className="entry" key={e.id}><time className="entry-date" dateTime={e.updatedAt} title={`更新时间：${e.updatedAt}`} aria-label={`更新时间：${e.updatedAt}`}>{/^\d{4}-\d{2}-\d{2}/.test(e.updatedAt) ? e.updatedAt.slice(0,10) : '—'}</time><button className="entry-main" onClick={()=>{setEditor({...e});setRevealed(false);}}><strong>{entryLabel(e)}</strong>{entrySubtitle(e) && <span>{entrySubtitle(e)}</span>}</button><span className="tag">{vault!.categories.find(c=>c.id===e.categoryId)?.name ?? '未分类'}</span><button className="icon-button" aria-label={`复制 ${entryLabel(e)} 密码`} onClick={()=>void copy(e.password)}><Copy size={18}/></button><button className="icon-button" aria-label={`编辑 ${entryLabel(e)}`} onClick={()=>{setEditor({...e});setRevealed(false);}}><Pencil size={17}/></button></article>) : <div className="empty"><div className="empty-icon"><KeyRound size={30}/></div><h2>{query ? '没有匹配的密码' : '从第一个密码开始'}</h2><p>{query ? '试试其他关键词，或选择其他分类。' : '添加登录信息，或导入已有的加密备份。'}</p>{!query && <button onClick={()=>{setEditor({...blankEntry(),categoryId:filter==='*'?'':filter});setRevealed(false);}}><Plus size={17}/>添加密码</button>}</div>}</section>
           <div className="backup-note"><ShieldCheck size={22}/><div><strong>本地保存，安心掌控</strong><p>浏览器数据可能被清理。定期导出加密备份，在其他设备导入即可继续使用。</p></div><button onClick={exportFile} disabled={busy}>备份保险库<ArrowRight size={17}/></button></div>
-          <footer><span><LockKeyhole size={13}/>端到本地加密 · 无后台服务</span><span>闲置 5 分钟自动锁定 · 也可随时手动锁定</span></footer>
+          <footer><span><LockKeyhole size={13}/>端到本地加密 · 无后台服务</span><span>仅在点击「锁定」时锁定 · 刷新无需重新输入主密码</span></footer>
         </div>
       </main>
     </div>}

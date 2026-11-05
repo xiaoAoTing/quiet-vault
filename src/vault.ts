@@ -64,13 +64,17 @@ export async function createVault(password: string) {
   const vault = emptyVault();
   return { key, vault, envelope: await seal(vault, key, b64(salt)) };
 }
-export async function openVault(envelope: Envelope, password: string) {
+export async function decryptVault(envelope: Envelope, key: CryptoKey): Promise<Vault> {
   // Validate even when called outside the file-import flow. Fixed KDF limits prevent resource exhaustion.
   envelope = parseEnvelope(JSON.stringify(envelope));
-  const key = await deriveKey(password, bytes(envelope.salt));
   let plain: Uint8Array;
   try { plain = new Uint8Array(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: bytes(envelope.iv), additionalData: aad, tagLength: 128 }, key, bytes(envelope.ciphertext))); }
   catch { throw new Error('无法解锁：主密码错误或文件已损坏'); }
-  try { const vault: unknown = JSON.parse(new TextDecoder().decode(plain)); validateVault(vault); return { key, vault, envelope }; }
+  try { const vault: unknown = JSON.parse(new TextDecoder().decode(plain)); validateVault(vault); return vault; }
   finally { plain.fill(0); }
+}
+export async function openVault(envelope: Envelope, password: string) {
+  envelope = parseEnvelope(JSON.stringify(envelope));
+  const key = await deriveKey(password, bytes(envelope.salt));
+  return { key, vault: await decryptVault(envelope, key), envelope };
 }

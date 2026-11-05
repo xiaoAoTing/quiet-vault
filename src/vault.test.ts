@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createVault, openVault, seal, parseEnvelope, validateVault, masterPasswordProblem, MAX_FILE_SIZE } from './vault';
+import { createVault, openVault, decryptVault, seal, parseEnvelope, validateVault, masterPasswordProblem, MAX_FILE_SIZE } from './vault';
 describe('encrypted vault', () => {
   it('round trips data, randomizes salt/IV, never serializes plaintext or password', async () => {
     const password = 'A long test passphrase 2026';
@@ -13,6 +13,8 @@ describe('encrypted vault', () => {
     for (const secret of ['alice','secret-password','私密备注',password]) expect(JSON.stringify(first)).not.toContain(secret);
     expect((await openVault(parseEnvelope(JSON.stringify(first)), password)).vault).toEqual(vault);
     expect(a.key.extractable).toBe(false);
+    expect(await decryptVault(first, a.key)).toEqual(vault);
+    await expect(decryptVault(first, b.key)).rejects.toThrow('无法解锁');
   });
   it('rejects wrong passwords and ciphertext tampering', async () => {
     const {envelope} = await createVault('Test password long enough 1');
