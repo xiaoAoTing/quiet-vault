@@ -6,6 +6,9 @@ async function openSidebar(page: Page) {
 async function manageCategories(page: Page) {
   await page.getByRole('button',{name:'管理分类',exact:true}).click();
 }
+function dialogCount(page: Page, count: number) {
+  return expect(page.locator('dialog')).toHaveCount(count);
+}
 const escapeRegExp = (value: string) => value.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
 function entryButton(page: Page, label: string) {
   return page.getByRole('button',{name:new RegExp(`^${escapeRegExp(label)}( |$)`)});
@@ -126,6 +129,52 @@ test('categorizes entries inline, creates categories in place and sorts them in 
   await page.getByRole('button',{name:/^所有密码/}).click();
   await expect(page.getByRole('button',{name:'修改分类：b@example.com，当前 工作'})).toBeVisible();
 });
+test('drags an entry by its left handle onto a category', async ({page}, testInfo) => {
+  await page.goto('/');
+  await page.getByLabel('主密码',{exact:true}).fill(master);
+  await page.getByLabel('再次输入主密码').fill(master);
+  await page.getByRole('button',{name:'创建保险库'}).click();
+  await expect(page.getByRole('button',{name:'新增密码',exact:true})).toBeVisible();
+  await manageCategories(page);
+  await page.getByRole('button',{name:'新建分类',exact:true}).click();
+  await page.getByLabel('分类名称').fill('工作');
+  await page.getByRole('button',{name:'创建分类',exact:true}).click();
+  await expect(page.getByRole('button',{name:'编辑分类 工作'})).toBeVisible();
+  await dialogCount(page, 1);
+  await page.getByRole('button',{name:'关闭弹窗'}).click();
+  await dialogCount(page, 0);
+  await page.getByRole('button',{name:'新增密码',exact:true}).click();
+  await page.getByLabel('账号',{exact:true}).fill('drag@example.com');
+  await page.getByLabel('密码',{exact:true}).fill('secret-entry-password');
+  await page.getByRole('button',{name:'加密保存'}).click();
+  await expect(entryButton(page,'drag@example.com')).toBeVisible();
+  await dialogCount(page, 0);
+  const mobile = testInfo.project.name === 'mobile';
+  async function dragTo(name: string, pattern: RegExp) {
+    const box = await page.locator('.entry',{hasText:'drag@example.com'}).locator('.entry-avatar').boundingBox();
+    await page.mouse.move(box!.x + box!.width / 2, box!.y + box!.height / 2);
+    await page.mouse.down();
+    await page.mouse.move(box!.x + box!.width / 2 + 28, box!.y + box!.height / 2 + 14, {steps:5});
+    await expect(page.locator('.drag-ghost')).toBeVisible();
+    const target = mobile
+      ? page.locator('.drag-tray').getByRole('button',{name,exact:true})
+      : page.getByRole('button',{name:pattern});
+    await expect(target).toBeVisible();
+    const targetBox = await target.boundingBox();
+    await page.mouse.move(targetBox!.x + targetBox!.width / 2, targetBox!.y + targetBox!.height / 2, {steps:10});
+    await expect(target).toHaveClass(/drop-hover/);
+    await page.mouse.up();
+    await expect(page.locator('.drag-ghost')).toHaveCount(0);
+  }
+  await dragTo('工作', /^工作/);
+  await expect(page.getByRole('button',{name:'修改分类：drag@example.com，当前 工作'})).toBeVisible();
+  // 刷新后拖拽结果随加密数据一起保留
+  await page.reload();
+  await expect(page.getByRole('button',{name:'修改分类：drag@example.com，当前 工作'})).toBeVisible();
+  await dragTo('未分类', /^未分类/);
+  await expect(page.getByRole('button',{name:'修改分类：drag@example.com，当前 未分类'})).toBeVisible();
+});
+
 test('assigns searchable custom category icons, randomizes and persists them', async ({page}) => {
   const remoteIconRequests: string[] = [];
   page.on('request', request => { if (request.url().includes('iconify.design')) remoteIconRequests.push(request.url()); });

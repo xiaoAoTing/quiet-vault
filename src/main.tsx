@@ -31,6 +31,11 @@ function entrySubtitle(entry: Entry) { return entry.name.trim() ? entry.username
 function entryClipboard(entry: Entry) {
   return [entry.name.trim() && `名称：${entry.name.trim()}`, entry.username && `账号：${entry.username}`, entry.password && `密码：${entry.password}`, entry.notes?.trim() && `备注：${entry.notes.trim()}`].filter(Boolean).join('\n');
 }
+// 放置目标用 data-category-drop 标记：空字符串代表「未分类」，null 代表没有命中任何分类。
+function dropCategoryAt(x: number, y: number): string | null {
+  const target = document.elementFromPoint(x, y)?.closest<HTMLElement>('[data-category-drop]');
+  return target ? target.getAttribute('data-category-drop') ?? '' : null;
+}
 // 备份文件名用设备本地时间，避免 UTC 造成的日期/时刻偏差。
 function localStamp(date = new Date()) {
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -60,6 +65,12 @@ function App() {
   const [menu, setMenu] = useState<{ ids: string[]; current?: string; anchor: HTMLElement } | null>(null);
   const [selecting, setSelecting] = useState(false);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  // 拖拽归类：条目左侧头像作为手柄，拖到侧边栏分类（窄屏为底部托盘）上即可改分类。
+  const dragSession = useRef<{ id: string; label: string; startX: number; startY: number; pointerId: number; active: boolean } | null>(null);
+  const dragPoint = useRef({ x: 0, y: 0 });
+  const ghostRef = useRef<HTMLDivElement>(null);
+  const ghostSize = useRef({ width: 0, height: 0 });
+  const [drag, setDrag] = useState<{ id: string; label: string; over: string | null } | null>(null);
   const [newCategory, setNewCategory] = useState('');
   const [startupError, setStartupError] = useState(false);
   const [restoring, setRestoring] = useState(true);
@@ -74,6 +85,7 @@ function App() {
     generation.current++;
     assign(null); setEditor(null); setCategoriesOpen(false); setPassword(''); setConfirmPassword(''); setRevealed(false); setQuery(''); setCategoryQuery(''); setCategoryEditor(null); setPending(null); setFilter('*'); setView('vault');
     setMenu(null); setSelecting(false); setSelectedIds(new Set()); setNewCategory('');
+    dragSession.current = null; setDrag(null); document.body.classList.remove('entry-dragging');
   }
   function changeFilter(value: string) {
     setFilter(value); setView('vault'); setMenu(null); setSelecting(false); setSelectedIds(new Set());
@@ -164,6 +176,12 @@ function App() {
     return () => document.removeEventListener('keydown', shortcut);
   }, []);
   useEffect(() => { if (!editor) entrySaveRef.current = null; }, [editor]);
+  // 浮层在拖拽开始时才挂载，这里补一次初始位置，之后的移动直接改 transform 避免整页重渲染。
+  useLayoutEffect(() => {
+    if (!drag || !ghostRef.current) return;
+    ghostSize.current = { width: ghostRef.current.offsetWidth, height: ghostRef.current.offsetHeight };
+    positionGhost(dragPoint.current.x, dragPoint.current.y);
+  }, [drag?.id]);
   async function run(task: (token: number) => Promise<void>) {
     if (busyRef.current) return;
     busyRef.current = true; setBusy(true); setError('');
@@ -235,6 +253,54 @@ function App() {
       setSelecting(false); setSelectedIds(new Set());
     });
   }
+  // 指针拖拽手柄：移动超过阈值才进入拖拽，松手时按指针下方的分类放置。
+  function positionGhost(x: number, y: number) {
+    const ghost = ghostRef.current;
+    if (!ghost) return;
+    const { width, height } = ghostSize.current;
+    // 靠近视口右下角时翻到指针另一侧，避免浮层盖住正在悬停的放置目标。
+    const left = x + 14 + width + 8 > innerWidth ? x - width - 14 : x + 14;
+    const top = y + 14 + height + 8 > innerHeight ? y - height - 14 : y + 14;
+    ghost.style.transform = `translate3d(${Math.max(8, left)}px, ${Math.max(8, top)}px, 0)`;
+  }
+  function startEntryDrag(event: React.PointerEvent<HTMLElement>, entry: Entry) {
+    if (event.button !== 0 || selecting || busyRef.current) return;
+    dragSession.current = { id: entry.id, label: entryLabel(entry), startX: event.clientX, startY: event.clientY, pointerId: event.pointerId, active: false };
+    event.currentTarget.setPointerCapture(event.pointerId);
+  }
+  function moveEntryDrag(event: React.PointerEvent<HTMLElement>) {
+    const session = dragSession.current;
+    if (!session || session.pointerId !== event.pointerId) return;
+    dragPoint.current = { x: event.clientX, y: event.clientY };
+    if (!session.active) {
+      if (Math.hypot(event.clientX - session.startX, event.clientY - session.startY) < 6) return;
+      session.active = true;
+      document.body.classList.add('entry-dragging');
+      setDrag({ id: session.id, label: session.label, over: dropCategoryAt(event.clientX, event.clientY) });
+    }
+    event.preventDefault();
+    positionGhost(event.clientX, event.clientY);
+    const over = dropCategoryAt(event.clientX, event.clientY);
+    setDrag(current => current && current.over !== over ? { ...current, over } : current);
+  }
+  function endEntryDrag(event: React.PointerEvent<HTMLElement>, cancelled = false) {
+    const session = dragSession.current;
+    if (!session || session.pointerId !== event.pointerId) return;
+    dragSession.current = null;
+    document.body.classList.remove('entry-dragging');
+    const target = cancelled ? null : dropCategoryAt(event.clientX, event.clientY);
+    setDrag(null);
+    if (!session.active || target === null) return;
+    const current = sessionRef.current;
+    const entry = current?.vault.entries.find(item => item.id === session.id);
+    if (!current || !entry) return;
+    if (entry.categoryId === target) {
+      const label = target === '' ? '未分类' : current.vault.categories.find(category => category.id === target)?.name;
+      if (label) setNotice(`已在「${label}」`);
+      return;
+    }
+    void assignCategory([session.id], target);
+  }
   async function createCategoryInline(name: string, apply: (id: string) => void) {
     const current = sessionRef.current;
     if (!current) return;
@@ -267,6 +333,7 @@ function App() {
   const selected = filter === '*' ? '所有密码' : filter === '' ? '未分类' : vault?.categories.find(c => c.id === filter)?.name ?? '所有密码';
   const entries = vault?.entries.filter(e => (filter === '*' || e.categoryId === filter) && [e.name,e.username,vault.categories.find(c=>c.id===e.categoryId)?.name ?? '未分类'].join(' ').toLocaleLowerCase().includes(query.toLocaleLowerCase())) ?? [];
   const nameOptions = vault && editor ? uniqueEntryNames(vault.entries, editor.id) : [];
+  const dropClass = (categoryId: string) => drag ? ` drop-ready${drag.over === categoryId ? ' drop-hover' : ''}` : '';
   return <>
     <input ref={fileRef} type="file" accept={isIOS ? undefined : '.json,.qvault,application/json'} hidden onChange={e => { void importFile(e.target.files?.[0]); e.target.value = ''; }}/>
     {restoring ? <main className="gate gate-restoring"><section className="gate-card"><div className="lock-emblem"><LockKeyhole size={30}/></div><p className="eyebrow">QUIET VAULT</p><h1>正在解锁…</h1><p className="muted">正在从此设备恢复加密会话。</p></section></main> : !session ? <main className="gate">
@@ -287,8 +354,8 @@ function App() {
         <p className="sidebar-title">分类</p>
         <nav className="category-nav" aria-label="分类">
           <button type="button" className={filter==='*'&&view==='vault'?'nav-item active':'nav-item'} aria-current={filter==='*'&&view==='vault'?'page':undefined} onClick={()=>changeFilter('*')}><KeyRound size={16}/><span className="nav-name">所有密码</span><span className="nav-count">{vault!.entries.length}</span></button>
-          {vault!.categories.map(c=><button type="button" className={filter===c.id&&view==='vault'?'nav-item active':'nav-item'} aria-current={filter===c.id&&view==='vault'?'page':undefined} key={c.id} onClick={()=>changeFilter(c.id)}><CategoryIcon icon={c.icon} size={16}/><span className="nav-name">{c.name}</span><span className="nav-count">{vault!.entries.filter(e=>e.categoryId===c.id).length}</span></button>)}
-          <button type="button" className={filter===''&&view==='vault'?'nav-item active':'nav-item'} aria-current={filter===''&&view==='vault'?'page':undefined} onClick={()=>changeFilter('')}><Folder size={16}/><span className="nav-name">未分类</span><span className="nav-count">{vault!.entries.filter(e=>!e.categoryId).length}</span></button>
+          {vault!.categories.map(c=><button type="button" data-category-drop={c.id} className={(filter===c.id&&view==='vault'?'nav-item active':'nav-item')+dropClass(c.id)} aria-current={filter===c.id&&view==='vault'?'page':undefined} key={c.id} onClick={()=>changeFilter(c.id)}><CategoryIcon icon={c.icon} size={16}/><span className="nav-name">{c.name}</span><span className="nav-count">{vault!.entries.filter(e=>e.categoryId===c.id).length}</span></button>)}
+          <button type="button" data-category-drop="" className={(filter===''&&view==='vault'?'nav-item active':'nav-item')+dropClass('')} aria-current={filter===''&&view==='vault'?'page':undefined} onClick={()=>changeFilter('')}><Folder size={16}/><span className="nav-name">未分类</span><span className="nav-count">{vault!.entries.filter(e=>!e.categoryId).length}</span></button>
         </nav>
         <div className="sidebar-tools">
           <button type="button" className={view==='about'?'sidebar-link active':'sidebar-link'} aria-current={view==='about'?'page':undefined} onClick={openAbout}><Info size={15}/>简介</button>
@@ -308,8 +375,8 @@ function App() {
             const category = vault!.categories.find(c=>c.id===e.categoryId);
             const name = category?.name;
             const isSelected = selectedIds.has(e.id);
-            return <article className={`entry${selecting?' selecting':''}${isSelected?' selected':''}`} key={e.id}>
-              {selecting ? <span className={`select-box${isSelected?' checked':''}`} aria-hidden="true">{isSelected && <Check size={15}/>}</span> : <span className="entry-avatar" aria-hidden="true">{entryLabel(e).slice(0,1)}</span>}
+            return <article className={`entry${selecting?' selecting':''}${isSelected?' selected':''}${drag?.id===e.id?' dragging':''}`} key={e.id}>
+              {selecting ? <span className={`select-box${isSelected?' checked':''}`} aria-hidden="true">{isSelected && <Check size={15}/>}</span> : <span className="entry-avatar drag-handle" aria-hidden="true" title="拖拽到分类可快速归类" onPointerDown={ev=>startEntryDrag(ev,e)} onPointerMove={moveEntryDrag} onPointerUp={endEntryDrag} onPointerCancel={ev=>endEntryDrag(ev,true)} onLostPointerCapture={ev=>endEntryDrag(ev,true)}>{entryLabel(e).slice(0,1)}</span>}
               <time className="entry-date" dateTime={e.updatedAt} title={`更新时间：${e.updatedAt}`} aria-label={`更新时间：${e.updatedAt}`}>{/^\d{4}-\d{2}-\d{2}/.test(e.updatedAt) ? e.updatedAt.slice(0,10) : '—'}</time>
               <button className="entry-main" onClick={selecting ? ()=>toggleSelected(e.id) : ()=>{setEditor({...e});setRevealed(false);}} aria-pressed={selecting ? isSelected : undefined}><strong>{entryLabel(e)}</strong>{entrySubtitle(e) && <span>{entrySubtitle(e)}</span>}{e.notes?.trim() && <span className="entry-notes">{e.notes}</span>}</button>
               {selecting ? <span className={`tag${name?'':' unset'}${category?.icon?' with-icon':''}`}>{category && <CategoryIcon icon={category.icon} size={12}/>}{name ?? '未分类'}</span> : <button type="button" className={`tag tag-button${name?'':' unset'}${category?.icon?' with-icon':''}`} aria-haspopup="true" aria-expanded={menu?.ids.length===1 && menu.ids[0]===e.id} aria-label={`修改分类：${entryLabel(e)}，当前 ${name ?? '未分类'}`} onClick={ev=>{const anchor=ev.currentTarget;setMenu(menu?.anchor===anchor?null:{ ids:[e.id], current:e.categoryId, anchor });}}>{category && <CategoryIcon icon={category.icon} size={12}/>}{name ?? '未分类'}</button>}
@@ -376,6 +443,14 @@ function App() {
       )}
     </Modal>}
     {menu && vault && <CategoryMenu anchor={menu.anchor} current={menu.current} categories={vault.categories} onPick={id=>void assignCategory(menu.ids,id)} onCreate={name=>void assignCategory(menu.ids,'',name)} onClose={()=>setMenu(null)}/>}
+    {drag && <div ref={ghostRef} className="drag-ghost" aria-hidden="true"><span className="entry-avatar">{drag.label.slice(0,1)}</span><span className="drag-ghost-label">{drag.label}</span></div>}
+    {drag && vault && <div className="drag-tray" role="toolbar" aria-label="拖动到分类">
+      <span className="drag-tray-label">移至分类</span>
+      <div className="drag-tray-chips">
+        <button type="button" data-category-drop="" className={`drag-chip unset${dropClass('')}`}><Folder size={14}/><span>未分类</span></button>
+        {vault.categories.map(c=><button type="button" key={c.id} data-category-drop={c.id} className={`drag-chip${dropClass(c.id)}`}><CategoryIcon icon={c.icon} size={14}/><span>{c.name}</span></button>)}
+      </div>
+    </div>}
     {error && <div className="toast error" role="alert"><span>{error}</span><button aria-label="关闭错误" onClick={()=>setError('')}><X size={18}/></button></div>}
     {notice && <div className="toast" role="status">{notice}</div>}
   </>;
@@ -395,7 +470,7 @@ function AboutPage() {
       <h2>怎么用</h2>
       <ol className="about-steps">
         <li><div><strong>新增与编辑</strong><span>点击「新增密码」填写名称、账号和密码，可同时选择分类；点条目即可修改，删除也在编辑窗口里。</span></div></li>
-        <li><div><strong>搜索与分类</strong><span>顶部搜索框支持名称、账号和分类；点条目右侧的分类标签可快速归类，「未分类」中还能勾选多条批量归类。</span></div></li>
+        <li><div><strong>搜索与分类</strong><span>顶部搜索框支持名称、账号和分类；拖动条目左侧头像到分类上可快速归类，点条目右侧的分类标签也能修改，「未分类」中还能勾选多条批量归类。</span></div></li>
         <li><div><strong>复制信息</strong><span>点复制按钮会一次性复制名称、账号、密码和备注。粘贴使用后，请记得清理剪贴板。</span></div></li>
         <li><div><strong>备份与迁移</strong><span>「导出备份」会下载一份加密文件；换设备或浏览器时用「导入」选择该文件，再输入主密码即可恢复。</span></div></li>
         <li><div><strong>锁定与解锁</strong><span>只有点击「锁定」才会退出。刷新或重新打开页面会自动恢复本机会话；锁定后必须重新输入主密码。</span></div></li>
