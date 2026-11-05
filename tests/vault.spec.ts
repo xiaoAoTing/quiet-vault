@@ -336,6 +336,25 @@ test('stores an optional note per entry and keeps it across reload', async ({pag
   await page.getByRole('button',{name:'加密保存'}).click();
   await expect(page.getByRole('button',{name:'复制 未命名条目 的名称、账号、密码和备注'})).toBeVisible();
 });
+test('drops blank lines from notes when saving', async ({page}) => {
+  await page.goto('/');
+  await page.getByLabel('主密码',{exact:true}).fill(master);
+  await page.getByLabel('再次输入主密码').fill(master);
+  await page.getByRole('button',{name:'创建保险库'}).click();
+  await expect(page.getByRole('button',{name:'新增密码',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'新增密码',exact:true}).click();
+  await page.getByLabel('名称',{exact:true}).fill('备用邮箱');
+  await page.getByLabel('备注（非必填）').fill('\n安全问题：第一只宠物\n\n   \n恢复码在保险箱\n\n');
+  await page.getByRole('button',{name:'加密保存'}).click();
+  await expect(page.getByRole('button',{name:'编辑 备用邮箱',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'编辑 备用邮箱',exact:true}).click();
+  await expect(page.getByLabel('备注（非必填）')).toHaveValue('安全问题：第一只宠物\n恢复码在保险箱');
+  await page.getByRole('button',{name:'关闭弹窗'}).click();
+  // 重新加载后保存的备注仍没有空行
+  await page.reload();
+  await page.getByRole('button',{name:'编辑 备用邮箱',exact:true}).click();
+  await expect(page.getByLabel('备注（非必填）')).toHaveValue('安全问题：第一只宠物\n恢复码在保险箱');
+});
 test('requires a strong master password when creating a vault', async ({page}) => {
   await page.goto('/');
   const password = page.getByLabel('主密码',{exact:true});

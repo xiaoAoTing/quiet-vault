@@ -45,6 +45,12 @@ export function validateVault(v: unknown): asserts v is Vault {
     entryIds.add(e.id);
   }
 }
+// 保存备注时去掉空行（含只含空格的行），并统一换行符，避免多行文本里残留无意义空白。
+export function normalizeNotes(notes: string | undefined): string | undefined {
+  if (notes === undefined) return undefined;
+  const cleaned = notes.split(/\r\n|\r|\n/).filter(line => line.trim()).join('\n').trim();
+  return cleaned || undefined;
+}
 // Earlier vaults stored a free-form note where the platform name now lives; entries without a name still carry it in `notes`.
 function migrateEntries(value: unknown) {
   const entries = (value as { entries?: unknown } | null)?.entries;

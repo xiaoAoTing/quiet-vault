@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { createVault, openVault, decryptVault, seal, parseEnvelope, validateVault, masterPasswordProblem, MAX_FILE_SIZE } from './vault';
+import { createVault, openVault, decryptVault, seal, parseEnvelope, validateVault, normalizeNotes, masterPasswordProblem, MAX_FILE_SIZE } from './vault';
 describe('encrypted vault', () => {
   it('round trips data, randomizes salt/IV, never serializes plaintext or password', async () => {
     const password = 'A long test passphrase 2026';
@@ -73,6 +73,18 @@ describe('encrypted vault', () => {
     const vault = await decryptVault(parseEnvelope(JSON.stringify(legacy)), key);
     expect(vault.entries[0]).toMatchObject({ name: '旧备注', username: 'alice' });
     expect('notes' in vault.entries[0]).toBe(false);
+  });
+});
+describe('note normalization', () => {
+  it('drops blank and whitespace-only lines and normalizes line endings', () => {
+    expect(normalizeNotes('第一行\n\n第二行')).toBe('第一行\n第二行');
+    expect(normalizeNotes('第一行\r\n第二行\r\n')).toBe('第一行\n第二行');
+    expect(normalizeNotes('\n\n  第一行  \n\t\n   \n第二行\n\n')).toBe('第一行  \n第二行');
+  });
+  it('treats notes without content as absent', () => {
+    expect(normalizeNotes(undefined)).toBeUndefined();
+    expect(normalizeNotes('')).toBeUndefined();
+    expect(normalizeNotes(' \n\t\r\n ')).toBeUndefined();
   });
 });
 describe('master password policy', () => {

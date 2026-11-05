@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from
 import { createRoot } from 'react-dom/client';
 import { ShieldCheck, LockKeyhole, Plus, Search, Download, Upload, Folder, KeyRound, Pencil, Trash2, X, Eye, EyeOff, Copy, ArrowRight, Sun, Moon, Check, Shuffle, Info } from './icons';
 import { CategoryIcon, categoryIconLabel, DEFAULT_CATEGORY_ICON, randomCategoryIcon, searchCategoryIcons } from './category-icons';
-import { createVault, openVault, decryptVault, parseEnvelope, seal, masterPasswordProblem, MAX_FILE_SIZE, type Vault, type Entry, type Category, type Envelope } from './vault';
+import { createVault, openVault, decryptVault, parseEnvelope, seal, masterPasswordProblem, normalizeNotes, MAX_FILE_SIZE, type Vault, type Entry, type Category, type Envelope } from './vault';
 import { uniqueEntryNames, matchEntryNames } from './name-suggest';
 import { saveSessionKey, loadSessionKey, clearSessionKey } from './session';
 import './style.css';
@@ -331,7 +331,7 @@ function App() {
       {requestClose => {
       const submit = () => {
         if (!editor.name.trim() && !editor.username.trim() && !editor.password && !editor.notes?.trim()) { setError('请至少填写名称、账号、密码或备注中的一项'); return; }
-        const next={...editor,username:editor.username.trim(),notes:editor.notes?.trim() || undefined,updatedAt:new Date().toISOString()};
+        const next={...editor,username:editor.username.trim(),notes:normalizeNotes(editor.notes),updatedAt:new Date().toISOString()};
         void save({...vault,entries:[...vault.entries.filter(x=>x.id!==next.id),next]},requestClose);
       };
       entrySaveRef.current = submit;
