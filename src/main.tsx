@@ -285,9 +285,9 @@ function App() {
           <div className="switcher-footer"><button type="button" className="switcher-manage" onClick={()=>{setSwitcherOpen(false);setCategoriesOpen(true);}}><Pencil size={15}/>管理分类</button></div>
         </div>}
       </div><button onClick={lock} disabled={busy}><LockKeyhole size={16}/>锁定</button></div></header>
-      <main className="workspace"><div className="content"><p className="breadcrumb">个人保险库 <span>/</span> {selected}</p><div className="page-heading"><div><p className="eyebrow">PRIVATE BY DESIGN</p><p className="muted">把重要的登录信息，安心放在这里。</p></div><button className="primary" disabled={busy} onClick={()=>{setEditor({...blankEntry(),categoryId:filter==='*'?'':filter});setRevealed(false);}}><Plus size={18}/>新增密码</button></div>
-          <div className="toolbar"><div className="search"><Search size={19}/><input aria-label="搜索密码" placeholder="搜索账号、备注或分类…" value={query} onChange={e=>setQuery(e.target.value)}/></div><div className="file-actions"><button disabled={busy} onClick={()=>fileRef.current?.click()}><Upload size={17}/>导入</button><button disabled={busy} onClick={exportFile}><Download size={17}/>导出备份</button></div></div>
-          <div className="save-status"><span/><span>{busy ? '正在加密保存…':'所有更改已加密保存在此浏览器'}</span><span className="sort-note">按账号排序</span></div>
+      <main className="workspace"><div className="content"><div className="list-head"><p className="breadcrumb">个人保险库 <span>/</span> {selected}</p><button className="primary" disabled={busy} onClick={()=>{setEditor({...blankEntry(),categoryId:filter==='*'?'':filter});setRevealed(false);}}><Plus size={18}/>新增密码</button></div>
+          <div className="toolbar"><div className="search"><Search size={19}/><input aria-label="搜索密码" placeholder="搜索账号、备注或分类…" value={query} onChange={e=>setQuery(e.target.value)}/></div><div className="file-actions"><button disabled={busy} onClick={()=>fileRef.current?.click()}><Upload size={15}/>导入</button><button disabled={busy} onClick={exportFile}><Download size={15}/>导出备份</button></div></div>
+          {busy && <div className="save-status"><span/><span>正在加密保存…</span></div>}
           {filter === '' && entries.length > 0 && !selecting && <div className="hint-bar">
             <div className="hint-icon"><Folder size={17}/></div>
             <div><strong>{entries.length} 条密码还没有分类</strong><p>勾选多条，一次归入同一个分类。</p></div>
@@ -305,8 +305,8 @@ function App() {
               {!selecting && <><button className="icon-button" aria-label={`复制 ${entryLabel(e)} 的账号、密码和备注`} onClick={()=>void copy(entryClipboard(e))}><Copy size={18}/></button><button className="icon-button" aria-label={`编辑 ${entryLabel(e)}`} onClick={()=>{setEditor({...e});setRevealed(false);}}><Pencil size={17}/></button></>}
             </article>;
           }) : <div className="empty"><div className="empty-icon"><KeyRound size={30}/></div><h2>{query ? '没有匹配的密码' : filter === '' ? '没有未分类的密码' : '从第一个密码开始'}</h2><p>{query ? '试试其他关键词，或选择其他分类。' : filter === '' ? '所有密码都已归类。' : '添加登录信息，或导入已有的加密备份。'}</p>{!query && filter !== '' && <button onClick={()=>{setEditor({...blankEntry(),categoryId:filter==='*'?'':filter});setRevealed(false);}}><Plus size={17}/>添加密码</button>}</div>}</section>
-          <div className="backup-note"><ShieldCheck size={22}/><div><strong>本地保存，安心掌控</strong><p>浏览器数据可能被清理。定期导出加密备份，在其他设备导入即可继续使用。</p></div><button onClick={exportFile} disabled={busy}>备份保险库<ArrowRight size={17}/></button></div>
-          <footer><span><LockKeyhole size={13}/>端到本地加密 · 无后台服务</span><span>仅在点击「锁定」时锁定 · 刷新无需重新输入主密码</span></footer>
+          <div className="backup-note"><ShieldCheck size={22}/><div><strong>本地保存，安心掌控</strong><p>浏览器数据可能被清理。定期导出加密备份，在其他设备导入即可继续使用。</p></div></div>
+          <footer><span><LockKeyhole size={13}/>端到本地加密 · 无后台服务</span></footer>
         </div>
       </main>
       {selecting && <div className="selection-bar" role="toolbar" aria-label="批量归类">
