@@ -194,6 +194,29 @@ test('keeps the vault unlocked when the page is hidden', async ({page}) => {
   });
   await expect(page.getByRole('button',{name:'新增密码',exact:true})).toBeVisible();
 });
+test('copies account, password and notes from the entry list', async ({page, context}) => {
+  await context.grantPermissions(['clipboard-read','clipboard-write']);
+  await page.goto('/');
+  await page.getByLabel('主密码',{exact:true}).fill(master);
+  await page.getByLabel('再次输入主密码').fill(master);
+  await page.getByRole('button',{name:'创建保险库'}).click();
+  await expect(page.getByRole('button',{name:'新增密码',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'新增密码',exact:true}).click();
+  await page.getByLabel('账号',{exact:true}).fill('alice@example.com');
+  await page.getByLabel('密码',{exact:true}).fill('secret-entry-password');
+  await page.getByLabel('备注',{exact:true}).fill('备用邮箱\n请勿外传');
+  await page.getByRole('button',{name:'加密保存'}).click();
+  await expect(page.getByRole('button',{name:'编辑 alice@example.com',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'复制 alice@example.com 的账号、密码和备注'}).click();
+  await expect(page.getByRole('status')).toContainText('已复制');
+  expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe('账号：alice@example.com\n密码：secret-entry-password\n备注：备用邮箱\n请勿外传');
+  // 空账号与空备注不产生多余标签行
+  await page.getByRole('button',{name:'新增密码',exact:true}).click();
+  await page.getByLabel('密码',{exact:true}).fill('only-password');
+  await page.getByRole('button',{name:'加密保存'}).click();
+  await page.getByRole('button',{name:'复制 未命名条目 的账号、密码和备注'}).click();
+  expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe('密码：only-password');
+});
 test('accepts .json backups and does not restrict the picker on iOS', async ({page}, testInfo) => {
   await page.goto('/');
   const accept = await page.locator('input[type=file]').getAttribute('accept');

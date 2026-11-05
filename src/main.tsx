@@ -25,6 +25,9 @@ applyTheme(initialTheme);
 const blankEntry = (): Entry => ({ id: crypto.randomUUID(), username: '', password: '', notes: '', categoryId: '', updatedAt: '' });
 function entryLabel(entry: Entry) { return entry.username || entry.notes.split('\n')[0].trim() || '未命名条目'; }
 function entrySubtitle(entry: Entry) { return entry.username ? entry.notes.split('\n')[0].trim() : '未填写账号'; }
+function entryClipboard(entry: Entry) {
+  return [entry.username && `账号：${entry.username}`, `密码：${entry.password}`, entry.notes.trim() && `备注：${entry.notes.trim()}`].filter(Boolean).join('\n');
+}
 // 备份文件名用设备本地时间，避免 UTC 造成的日期/时刻偏差。
 function localStamp(date = new Date()) {
   const pad = (n: number) => String(n).padStart(2, '0');
@@ -299,7 +302,7 @@ function App() {
               <time className="entry-date" dateTime={e.updatedAt} title={`更新时间：${e.updatedAt}`} aria-label={`更新时间：${e.updatedAt}`}>{/^\d{4}-\d{2}-\d{2}/.test(e.updatedAt) ? e.updatedAt.slice(0,10) : '—'}</time>
               <button className="entry-main" onClick={selecting ? ()=>toggleSelected(e.id) : ()=>{setEditor({...e});setRevealed(false);}} aria-pressed={selecting ? isSelected : undefined}><strong>{entryLabel(e)}</strong>{entrySubtitle(e) && <span>{entrySubtitle(e)}</span>}</button>
               {selecting ? <span className={`tag${name?'':' unset'}${category?.icon?' with-icon':''}`}>{category && <CategoryIcon icon={category.icon} size={12}/>}{name ?? '未分类'}</span> : <button type="button" className={`tag tag-button${name?'':' unset'}${category?.icon?' with-icon':''}`} aria-haspopup="true" aria-expanded={menu?.ids.length===1 && menu.ids[0]===e.id} aria-label={`修改分类：${entryLabel(e)}，当前 ${name ?? '未分类'}`} onClick={ev=>{const anchor=ev.currentTarget;setMenu(menu?.anchor===anchor?null:{ ids:[e.id], current:e.categoryId, anchor });}}>{category && <CategoryIcon icon={category.icon} size={12}/>}{name ?? '未分类'}</button>}
-              {!selecting && <><button className="icon-button" aria-label={`复制 ${entryLabel(e)} 密码`} onClick={()=>void copy(e.password)}><Copy size={18}/></button><button className="icon-button" aria-label={`编辑 ${entryLabel(e)}`} onClick={()=>{setEditor({...e});setRevealed(false);}}><Pencil size={17}/></button></>}
+              {!selecting && <><button className="icon-button" aria-label={`复制 ${entryLabel(e)} 的账号、密码和备注`} onClick={()=>void copy(entryClipboard(e))}><Copy size={18}/></button><button className="icon-button" aria-label={`编辑 ${entryLabel(e)}`} onClick={()=>{setEditor({...e});setRevealed(false);}}><Pencil size={17}/></button></>}
             </article>;
           }) : <div className="empty"><div className="empty-icon"><KeyRound size={30}/></div><h2>{query ? '没有匹配的密码' : filter === '' ? '没有未分类的密码' : '从第一个密码开始'}</h2><p>{query ? '试试其他关键词，或选择其他分类。' : filter === '' ? '所有密码都已归类。' : '添加登录信息，或导入已有的加密备份。'}</p>{!query && filter !== '' && <button onClick={()=>{setEditor({...blankEntry(),categoryId:filter==='*'?'':filter});setRevealed(false);}}><Plus size={17}/>添加密码</button>}</div>}</section>
           <div className="backup-note"><ShieldCheck size={22}/><div><strong>本地保存，安心掌控</strong><p>浏览器数据可能被清理。定期导出加密备份，在其他设备导入即可继续使用。</p></div><button onClick={exportFile} disabled={busy}>备份保险库<ArrowRight size={17}/></button></div>
