@@ -64,6 +64,7 @@ function App() {
   const [restoring, setRestoring] = useState(true);
   const [theme, setTheme] = useState<Theme>(initialTheme);
   const fileRef = useRef<HTMLInputElement>(null);
+  const entryFormRef = useRef<HTMLFormElement>(null);
   const version = useRef<string | null>(null);
   const generation = useRef(0);
   function assign(value: Session | null) { sessionRef.current = value; setSession(value); }
@@ -149,6 +150,18 @@ function App() {
   }, []);
   useEffect(() => { if (!notice) return; const timer = setTimeout(() => setNotice(''), 4000); return () => clearTimeout(timer); }, [notice]);
   useEffect(() => { applyTheme(theme); try { localStorage.setItem(THEME_KEY, theme); } catch {} }, [theme]);
+  // Cmd/Ctrl+S 保存编辑中的条目，同时挡住浏览器自己的「保存网页」。
+  useEffect(() => {
+    const shortcut = (e: KeyboardEvent) => {
+      if (!(e.metaKey || e.ctrlKey) || e.key.toLocaleLowerCase() !== 's') return;
+      const form = entryFormRef.current;
+      if (!form) return;
+      e.preventDefault();
+      if (!busyRef.current) form.requestSubmit();
+    };
+    document.addEventListener('keydown', shortcut);
+    return () => document.removeEventListener('keydown', shortcut);
+  }, []);
   async function run(task: (token: number) => Promise<void>) {
     if (busyRef.current) return;
     busyRef.current = true; setBusy(true); setError('');
@@ -314,7 +327,7 @@ function App() {
     </div>}
     {editor && vault && <Modal error={error} title={vault.entries.some(e=>e.id===editor.id)?'编辑密码':'新增密码'} icon={<KeyRound size={18}/>} close={()=>setEditor(null)} disabled={busy}>
       {requestClose => (
-      <form onSubmit={e=>{e.preventDefault();const next={...editor,username:editor.username.trim(),notes:editor.notes?.trim() || undefined,updatedAt:new Date().toISOString()};void save({...vault,entries:[...vault.entries.filter(x=>x.id!==next.id),next]},requestClose);}}>
+      <form ref={entryFormRef} onSubmit={e=>{e.preventDefault();const next={...editor,username:editor.username.trim(),notes:editor.notes?.trim() || undefined,updatedAt:new Date().toISOString()};void save({...vault,entries:[...vault.entries.filter(x=>x.id!==next.id),next]},requestClose);}}>
         <NameCombobox value={editor.name} options={nameOptions} onChange={name=>setEditor({...editor,name})}/>
         <label>账号<input autoComplete="off" maxLength={1000} value={editor.username} onChange={e=>setEditor({...editor,username:e.target.value})}/></label>
         <label>密码<div className="password-field"><input id="entry-password" required type={revealed?'text':'password'} autoComplete="new-password" maxLength={4096} value={editor.password} onChange={e=>setEditor({...editor,password:e.target.value})}/><div className="password-tools"><button type="button" aria-label={revealed?'隐藏密码':'显示密码'} onClick={()=>setRevealed(!revealed)}>{revealed?<EyeOff size={18}/>:<Eye size={18}/>}</button><button type="button" aria-label="复制密码" onClick={()=>void copy(editor.password)}><Copy size={18}/></button></div></div></label>

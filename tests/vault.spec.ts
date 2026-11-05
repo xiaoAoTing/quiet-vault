@@ -328,6 +328,31 @@ test('requires a strong master password when creating a vault', async ({page}) =
   await create.click();
   await expect(page.getByRole('button',{name:'新增密码',exact:true})).toBeVisible();
 });
+test('saves the entry with the Cmd/Ctrl+S shortcut', async ({page}) => {
+  await page.goto('/');
+  await page.getByLabel('主密码',{exact:true}).fill(master);
+  await page.getByLabel('再次输入主密码').fill(master);
+  await page.getByRole('button',{name:'创建保险库'}).click();
+  await expect(page.getByRole('button',{name:'新增密码',exact:true})).toBeVisible();
+  // 新增条目时按快捷键直接保存
+  await page.getByRole('button',{name:'新增密码',exact:true}).click();
+  await page.getByLabel('账号',{exact:true}).fill('shortcut@example.com');
+  await page.getByLabel('密码',{exact:true}).fill('secret-entry-password');
+  await page.keyboard.press('ControlOrMeta+s');
+  await expect(page.getByRole('button',{name:'编辑 shortcut@example.com',exact:true})).toBeVisible();
+  await expect(page.locator('dialog')).toHaveCount(0);
+  // 编辑已有条目时同样生效
+  await page.getByRole('button',{name:'编辑 shortcut@example.com',exact:true}).click();
+  await page.getByLabel('账号',{exact:true}).fill('saved@example.com');
+  await page.keyboard.press('ControlOrMeta+s');
+  await expect(page.getByRole('button',{name:'编辑 saved@example.com',exact:true})).toBeVisible();
+  await expect(page.locator('dialog')).toHaveCount(0);
+  // 必填密码为空时快捷键不会提交
+  await page.getByRole('button',{name:'新增密码',exact:true}).click();
+  await page.getByLabel('账号',{exact:true}).fill('no-password@example.com');
+  await page.keyboard.press('ControlOrMeta+s');
+  await expect(page.locator('dialog')).toBeVisible();
+});
 test('moves the local-storage guidance onto a dedicated about page', async ({page}) => {
   await page.goto('/');
   await page.getByLabel('主密码',{exact:true}).fill(master);
