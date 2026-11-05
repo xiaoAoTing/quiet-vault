@@ -1,6 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { ShieldCheck, LockKeyhole, Plus, Search, Download, Upload, Folder, KeyRound, Pencil, Trash2, X, Eye, EyeOff, Copy, ArrowRight, Sun, Moon, ChevronDown, Check } from './icons';
+import { ShieldCheck, LockKeyhole, Plus, Search, Download, Upload, Folder, KeyRound, Pencil, Trash2, X, Eye, EyeOff, Copy, ArrowRight, Sun, Moon, ChevronDown, Check, Shuffle } from './icons';
+import { CategoryIcon, DEFAULT_CATEGORY_ICON, randomCategoryIcon, searchCategoryIcons } from './category-icons';
 import { createVault, openVault, decryptVault, parseEnvelope, seal, masterPasswordProblem, MAX_FILE_SIZE, type Vault, type Entry, type Category, type Envelope } from './vault';
 import { saveSessionKey, loadSessionKey, clearSessionKey } from './session';
 import './style.css';
@@ -49,6 +50,7 @@ function App() {
   const [categoriesOpen, setCategoriesOpen] = useState(false);
   const [categoryName, setCategoryName] = useState('');
   const [categoryId, setCategoryId] = useState('');
+  const [categoryIcon, setCategoryIcon] = useState(DEFAULT_CATEGORY_ICON);
   const [revealed, setRevealed] = useState(false);
   // 行内归类：ids 为一次要改分类的条目，anchor 是触发按钮，菜单贴着它展开。
   const [menu, setMenu] = useState<{ ids: string[]; current?: string; anchor: HTMLElement } | null>(null);
@@ -65,7 +67,7 @@ function App() {
   function toggleTheme() { setTheme(value => value === 'dark' ? 'light' : 'dark'); }
   function clearSession() {
     generation.current++;
-    assign(null); setEditor(null); setCategoriesOpen(false); setSwitcherOpen(false); setPassword(''); setConfirmPassword(''); setRevealed(false); setQuery(''); setCategoryQuery(''); setCategoryName(''); setCategoryId(''); setPending(null); setFilter('*');
+    assign(null); setEditor(null); setCategoriesOpen(false); setSwitcherOpen(false); setPassword(''); setConfirmPassword(''); setRevealed(false); setQuery(''); setCategoryQuery(''); setCategoryName(''); setCategoryId(''); setCategoryIcon(DEFAULT_CATEGORY_ICON); setPending(null); setFilter('*');
     setMenu(null); setSelecting(false); setSelectedIds(new Set()); setNewCategory('');
   }
   function changeFilter(value: string) {
@@ -207,7 +209,7 @@ function App() {
       const name = newName.trim();
       const existing = categories.find(c => c.name.toLocaleLowerCase() === name.toLocaleLowerCase());
       if (existing) target = existing.id;
-      else { target = crypto.randomUUID(); categories = [...categories, { id: target, name }]; }
+      else { target = crypto.randomUUID(); categories = [...categories, { id: target, name, icon: DEFAULT_CATEGORY_ICON }]; }
     }
     const idSet = new Set(ids);
     const stamp = new Date().toISOString();
@@ -226,7 +228,7 @@ function App() {
     const existing = current.vault.categories.find(c => c.name.toLocaleLowerCase() === name.toLocaleLowerCase());
     if (existing) { apply(existing.id); return; }
     const id = crypto.randomUUID();
-    await save({ ...current.vault, categories: [...current.vault.categories, { id, name }] }, () => { apply(id); setNotice(`已创建分类「${name}」`); });
+    await save({ ...current.vault, categories: [...current.vault.categories, { id, name, icon: DEFAULT_CATEGORY_ICON }] }, () => { apply(id); setNotice(`已创建分类「${name}」`); });
   }
   function toggleSelected(id: string) {
     setSelectedIds(prev => { const next = new Set(prev); if (next.has(id)) next.delete(id); else next.add(id); return next; });
@@ -250,6 +252,7 @@ function App() {
   async function copy(value: string) { try { await navigator.clipboard.writeText(value); setNotice('已复制。使用后请清理剪贴板'); } catch { setError('无法访问剪贴板，请显示后手动复制'); } }
   const vault = session?.vault;
   const selected = filter === '*' ? '所有密码' : filter === '' ? '未分类' : vault?.categories.find(c => c.id === filter)?.name ?? '所有密码';
+  const selectedCategory = filter !== '*' && filter !== '' ? vault?.categories.find(c => c.id === filter) : undefined;
   const entries = vault?.entries.filter(e => (filter === '*' || e.categoryId === filter) && [e.username,e.notes,vault.categories.find(c=>c.id===e.categoryId)?.name ?? '未分类'].join(' ').toLocaleLowerCase().includes(query.toLocaleLowerCase())) ?? [];
   const categoryMatches = vault?.categories.filter(c=>c.name.toLocaleLowerCase().includes(categoryQuery.toLocaleLowerCase())) ?? [];
   return <>
@@ -267,12 +270,12 @@ function App() {
       </section><p className="gate-foot">请牢记主密码。我们无法找回或重置它。<br/>浏览器存储不是备份，请定期导出加密文件。</p>
     </main> : <div className="app-shell">
       <header className="app-header"><div className="brand-block"><a className="brand" href="#"><ShieldCheck/><span>Quiet Vault<span className="brand-dot">.</span></span></a><div className="workspace-label">个人空间 <span>LOCAL</span></div></div><div className="header-actions"><ThemeToggle theme={theme} onToggle={toggleTheme}/><div className="category-switcher" ref={switcherRef}>
-        <button type="button" className="switcher-trigger" aria-haspopup="true" aria-expanded={switcherOpen} aria-controls="category-switcher-menu" aria-label={`切换分类，当前：${selected}`} onClick={()=>setSwitcherOpen(value=>!value)}><Folder size={16}/><span className="switcher-label">{selected}</span><ChevronDown size={13}/></button>
+        <button type="button" className="switcher-trigger" aria-haspopup="true" aria-expanded={switcherOpen} aria-controls="category-switcher-menu" aria-label={`切换分类，当前：${selected}`} onClick={()=>setSwitcherOpen(value=>!value)}>{filter === '*' ? <KeyRound size={16}/> : filter === '' ? <Folder size={16}/> : <CategoryIcon icon={selectedCategory?.icon} size={16}/>}<span className="switcher-label">{selected}</span><ChevronDown size={13}/></button>
         {switcherOpen && <div className="switcher-menu" id="category-switcher-menu">
           <input className="switcher-search" aria-label="搜索分类" placeholder="查找分类…" value={categoryQuery} onChange={e=>setCategoryQuery(e.target.value)}/>
           <div className="switcher-list">
             <button type="button" className={filter==='*'?'switcher-item active':'switcher-item'} onClick={()=>{changeFilter('*');setSwitcherOpen(false);}}><KeyRound size={16}/><span className="switcher-name">所有密码</span><span className="switcher-count">{vault!.entries.length}</span></button>
-            {categoryMatches.map(c=><button type="button" className={filter===c.id?'switcher-item active':'switcher-item'} key={c.id} onClick={()=>{changeFilter(c.id);setSwitcherOpen(false);}}><Folder size={16}/><span className="switcher-name">{c.name}</span><span className="switcher-count">{vault!.entries.filter(e=>e.categoryId===c.id).length}</span></button>)}
+            {categoryMatches.map(c=><button type="button" className={filter===c.id?'switcher-item active':'switcher-item'} key={c.id} onClick={()=>{changeFilter(c.id);setSwitcherOpen(false);}}><CategoryIcon icon={c.icon} size={16}/><span className="switcher-name">{c.name}</span><span className="switcher-count">{vault!.entries.filter(e=>e.categoryId===c.id).length}</span></button>)}
             <button type="button" className={filter===''?'switcher-item active':'switcher-item'} onClick={()=>{changeFilter('');setSwitcherOpen(false);}}><Folder size={16}/><span className="switcher-name">未分类</span><span className="switcher-count">{vault!.entries.filter(e=>!e.categoryId).length}</span></button>
             {categoryQuery && !categoryMatches.length && <p className="switcher-empty">没有匹配的分类</p>}
           </div>
@@ -288,13 +291,14 @@ function App() {
             <button type="button" onClick={()=>{setSelecting(true);setSelectedIds(new Set());setMenu(null);}}>批量归类</button>
           </div>}
           <section className="entry-list" aria-label="密码列表">{entries.length ? entries.sort((a,b)=>entryLabel(a).localeCompare(entryLabel(b))).map(e=>{
-            const name = vault!.categories.find(c=>c.id===e.categoryId)?.name;
+            const category = vault!.categories.find(c=>c.id===e.categoryId);
+            const name = category?.name;
             const isSelected = selectedIds.has(e.id);
             return <article className={`entry${selecting?' selecting':''}${isSelected?' selected':''}`} key={e.id}>
               {selecting ? <span className={`select-box${isSelected?' checked':''}`} aria-hidden="true">{isSelected && <Check size={15}/>}</span> : <span className="entry-avatar" aria-hidden="true">{entryLabel(e).slice(0,1)}</span>}
               <time className="entry-date" dateTime={e.updatedAt} title={`更新时间：${e.updatedAt}`} aria-label={`更新时间：${e.updatedAt}`}>{/^\d{4}-\d{2}-\d{2}/.test(e.updatedAt) ? e.updatedAt.slice(0,10) : '—'}</time>
               <button className="entry-main" onClick={selecting ? ()=>toggleSelected(e.id) : ()=>{setEditor({...e});setRevealed(false);}} aria-pressed={selecting ? isSelected : undefined}><strong>{entryLabel(e)}</strong>{entrySubtitle(e) && <span>{entrySubtitle(e)}</span>}</button>
-              {selecting ? <span className={`tag${name?'':' unset'}`}>{name ?? '未分类'}</span> : <button type="button" className={`tag tag-button${name?'':' unset'}`} aria-haspopup="true" aria-expanded={menu?.ids.length===1 && menu.ids[0]===e.id} aria-label={`修改分类：${entryLabel(e)}，当前 ${name ?? '未分类'}`} onClick={ev=>{const anchor=ev.currentTarget;setMenu(menu?.anchor===anchor?null:{ ids:[e.id], current:e.categoryId, anchor });}}>{name ?? '未分类'}</button>}
+              {selecting ? <span className={`tag${name?'':' unset'}${category?.icon?' with-icon':''}`}>{category && <CategoryIcon icon={category.icon} size={12}/>}{name ?? '未分类'}</span> : <button type="button" className={`tag tag-button${name?'':' unset'}${category?.icon?' with-icon':''}`} aria-haspopup="true" aria-expanded={menu?.ids.length===1 && menu.ids[0]===e.id} aria-label={`修改分类：${entryLabel(e)}，当前 ${name ?? '未分类'}`} onClick={ev=>{const anchor=ev.currentTarget;setMenu(menu?.anchor===anchor?null:{ ids:[e.id], current:e.categoryId, anchor });}}>{category && <CategoryIcon icon={category.icon} size={12}/>}{name ?? '未分类'}</button>}
               {!selecting && <><button className="icon-button" aria-label={`复制 ${entryLabel(e)} 密码`} onClick={()=>void copy(e.password)}><Copy size={18}/></button><button className="icon-button" aria-label={`编辑 ${entryLabel(e)}`} onClick={()=>{setEditor({...e});setRevealed(false);}}><Pencil size={17}/></button></>}
             </article>;
           }) : <div className="empty"><div className="empty-icon"><KeyRound size={30}/></div><h2>{query ? '没有匹配的密码' : filter === '' ? '没有未分类的密码' : '从第一个密码开始'}</h2><p>{query ? '试试其他关键词，或选择其他分类。' : filter === '' ? '所有密码都已归类。' : '添加登录信息，或导入已有的加密备份。'}</p>{!query && filter !== '' && <button onClick={()=>{setEditor({...blankEntry(),categoryId:filter==='*'?'':filter});setRevealed(false);}}><Plus size={17}/>添加密码</button>}</div>}</section>
@@ -316,8 +320,8 @@ function App() {
         <label>密码<div className="password-field"><input id="entry-password" required type={revealed?'text':'password'} autoComplete="new-password" maxLength={4096} value={editor.password} onChange={e=>setEditor({...editor,password:e.target.value})}/><div className="password-tools"><button type="button" aria-label={revealed?'隐藏密码':'显示密码'} onClick={()=>setRevealed(!revealed)}>{revealed?<EyeOff size={18}/>:<Eye size={18}/>}</button><button type="button" aria-label="复制密码" onClick={()=>void copy(editor.password)}><Copy size={18}/></button></div></div></label>
         <div className="field-label" id="entry-category-label">分类</div>
         <div className="category-field" role="group" aria-labelledby="entry-category-label">
-          <button type="button" className="category-chip" aria-pressed={editor.categoryId===''} onClick={()=>setEditor({...editor,categoryId:''})}>未分类</button>
-          {vault.categories.map(c=><button type="button" className="category-chip" key={c.id} aria-pressed={editor.categoryId===c.id} onClick={()=>setEditor({...editor,categoryId:c.id})}>{c.name}</button>)}
+          <button type="button" className="category-chip" aria-pressed={editor.categoryId===''} onClick={()=>setEditor({...editor,categoryId:''})}><CategoryIcon icon={DEFAULT_CATEGORY_ICON} size={14}/>未分类</button>
+          {vault.categories.map(c=><button type="button" className="category-chip" key={c.id} aria-pressed={editor.categoryId===c.id} onClick={()=>setEditor({...editor,categoryId:c.id})}><CategoryIcon icon={c.icon} size={14}/>{c.name}</button>)}
         </div>
         <div className="category-create"><input aria-label="新建分类" value={newCategory} maxLength={60} placeholder="新建分类，按回车创建" onChange={e=>setNewCategory(e.target.value)} onKeyDown={e=>{
           if (e.key !== 'Enter') return;
@@ -331,9 +335,14 @@ function App() {
       </form>
       )}
     </Modal>}
-    {categoriesOpen && vault && <Modal error={error} title="管理分类" icon={<Folder size={18}/>} close={()=>{setCategoriesOpen(false);setCategoryName('');setCategoryId('');}} disabled={busy}>
-      <p className="muted">删除分类时，密码条目将移至「未分类」。</p><form onSubmit={e=>{e.preventDefault();const name=categoryName.trim();if(!name)return;if(vault.categories.some(c=>c.id!==categoryId&&c.name.toLocaleLowerCase()===name.toLocaleLowerCase())){setError('分类名称已存在');return;}void save({...vault,categories:categoryId?vault.categories.map(c=>c.id===categoryId?{...c,name}:c):[...vault.categories,{id:crypto.randomUUID(),name}]},()=>{setCategoryName('');setCategoryId('');});}}><label>{categoryId?'编辑分类名称':'新分类名称'}<input required maxLength={60} value={categoryName} onChange={e=>setCategoryName(e.target.value)}/></label><button className="primary" disabled={busy}>{categoryId?'保存分类':'添加分类'}</button>{categoryId&&<button type="button" onClick={()=>{setCategoryId('');setCategoryName('');}}>取消编辑</button>}</form>
-      <label>查找分类<input value={categoryQuery} onChange={e=>setCategoryQuery(e.target.value)} placeholder="输入分类名称…"/></label><div className="category-list">{vault.categories.filter(c=>c.name.toLocaleLowerCase().includes(categoryQuery.toLocaleLowerCase())).map(c=><div key={c.id}><Folder size={17}/><span>{c.name}</span><button aria-label={`编辑分类 ${c.name}`} disabled={busy} onClick={()=>{setCategoryName(c.name);setCategoryId(c.id);}}><Pencil size={17}/></button><button className="danger" aria-label={`删除分类 ${c.name}`} disabled={busy} onClick={()=>{if(confirm(`删除分类「${c.name}」？条目将移至未分类。`))void save({categories:vault.categories.filter(x=>x.id!==c.id),entries:vault.entries.map(e=>e.categoryId===c.id?{...e,categoryId:''}:e)},()=>{if(filter===c.id)changeFilter('');if(categoryId===c.id){setCategoryId('');setCategoryName('');}});}}><Trash2 size={17}/></button></div>)}</div>
+    {categoriesOpen && vault && <Modal error={error} title="管理分类" icon={<Folder size={18}/>} close={()=>{setCategoriesOpen(false);setCategoryName('');setCategoryId('');setCategoryIcon(DEFAULT_CATEGORY_ICON);}} disabled={busy}>
+      <p className="muted">为分类选一个图标，删除分类时密码条目将移至「未分类」。</p>
+      <form className="category-form" onSubmit={e=>{e.preventDefault();const name=categoryName.trim();if(!name)return;if(vault.categories.some(c=>c.id!==categoryId&&c.name.toLocaleLowerCase()===name.toLocaleLowerCase())){setError('分类名称已存在');return;}void save({...vault,categories:categoryId?vault.categories.map(c=>c.id===categoryId?{...c,name,icon:categoryIcon}:c):[...vault.categories,{id:crypto.randomUUID(),name,icon:categoryIcon}]},()=>{setCategoryName('');setCategoryId('');setCategoryIcon(DEFAULT_CATEGORY_ICON);});}}>
+        <label>{categoryId?'编辑分类名称':'新分类名称'}<input required maxLength={60} value={categoryName} onChange={e=>setCategoryName(e.target.value)}/></label>
+        <IconPicker value={categoryIcon} onChange={setCategoryIcon}/>
+        <div className="category-form-actions"><button className="primary" disabled={busy}>{categoryId?'保存分类':'添加分类'}</button>{categoryId&&<button type="button" onClick={()=>{setCategoryId('');setCategoryName('');setCategoryIcon(DEFAULT_CATEGORY_ICON);}}>取消编辑</button>}</div>
+      </form>
+      <label>查找分类<input value={categoryQuery} onChange={e=>setCategoryQuery(e.target.value)} placeholder="输入分类名称…"/></label><div className="category-list">{vault.categories.filter(c=>c.name.toLocaleLowerCase().includes(categoryQuery.toLocaleLowerCase())).map(c=><div key={c.id}><CategoryIcon icon={c.icon} size={17}/><span>{c.name}</span><button aria-label={`编辑分类 ${c.name}`} disabled={busy} onClick={()=>{setCategoryName(c.name);setCategoryId(c.id);setCategoryIcon(c.icon ?? DEFAULT_CATEGORY_ICON);}}><Pencil size={17}/></button><button className="danger" aria-label={`删除分类 ${c.name}`} disabled={busy} onClick={()=>{if(confirm(`删除分类「${c.name}」？条目将移至未分类。`))void save({categories:vault.categories.filter(x=>x.id!==c.id),entries:vault.entries.map(e=>e.categoryId===c.id?{...e,categoryId:''}:e)},()=>{if(filter===c.id)changeFilter('');if(categoryId===c.id){setCategoryId('');setCategoryName('');setCategoryIcon(DEFAULT_CATEGORY_ICON);}});}}><Trash2 size={17}/></button></div>)}</div>
     </Modal>}
     {menu && vault && <CategoryMenu anchor={menu.anchor} current={menu.current} categories={vault.categories} onPick={id=>void assignCategory(menu.ids,id)} onCreate={name=>void assignCategory(menu.ids,'',name)} onClose={()=>setMenu(null)}/>}
     {error && <div className="toast error" role="alert"><span>{error}</span><button aria-label="关闭错误" onClick={()=>setError('')}><X size={18}/></button></div>}
@@ -381,10 +390,29 @@ function CategoryMenu({anchor,current,categories,onPick,onCreate,onClose}:{ancho
     <input autoFocus className="category-menu-search" aria-label="搜索或新建分类" placeholder="搜索或新建分类…" maxLength={60} value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>{ if (e.key === 'Enter') { e.preventDefault(); submit(); } }}/>
     <div className="category-menu-list">
       <button type="button" className={current===''?'category-option active':'category-option'} aria-current={current===''||undefined} onClick={()=>onPick('')}><Folder size={15}/><span>未分类</span></button>
-      {filtered.map(c=><button type="button" key={c.id} className={current===c.id?'category-option active':'category-option'} aria-current={current===c.id||undefined} onClick={()=>onPick(c.id)}><Folder size={15}/><span>{c.name}</span></button>)}
+      {filtered.map(c=><button type="button" key={c.id} className={current===c.id?'category-option active':'category-option'} aria-current={current===c.id||undefined} onClick={()=>onPick(c.id)}><CategoryIcon icon={c.icon} size={15}/><span>{c.name}</span></button>)}
       {canCreate && <button type="button" className="category-option create" onClick={()=>onCreate(q)}><Plus size={15}/><span>新建分类「{q}」</span></button>}
       {!filtered.length && !canCreate && <p className="category-menu-empty">没有分类。输入名称即可新建。</p>}
     </div>
+  </div>;
+}
+function IconPicker({value,onChange}:{value:string;onChange:(icon:string)=>void}) {
+  const [query, setQuery] = useState('');
+  const options = searchCategoryIcons(query);
+  return <div className="icon-picker">
+    <div className="icon-picker-head">
+      <span className="icon-preview" aria-hidden="true"><CategoryIcon icon={value} size={20}/></span>
+      <div className="icon-picker-meta"><strong>分类图标</strong><span>{value.slice('lucide:'.length)}</span></div>
+      <button type="button" className="icon-random" onClick={()=>onChange(randomCategoryIcon(value))}><Shuffle size={15}/>随机</button>
+    </div>
+    <input className="icon-search" aria-label="搜索分类图标" placeholder="搜索图标，如 home、工作、邮箱…" maxLength={40} value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')e.preventDefault();}}/>
+    <div className="icon-grid" role="group" aria-label="选择分类图标">
+      {options.map(option=>{
+        const icon = `lucide:${option.name}`;
+        return <button type="button" key={option.name} className="icon-choice" aria-label={`使用图标 ${option.label}`} aria-pressed={value===icon} title={`${option.label} · ${option.name}`} onClick={()=>onChange(icon)}><CategoryIcon icon={icon} size={18}/></button>;
+      })}
+    </div>
+    {!options.length && <p className="icon-empty">没有匹配的图标，试试英文名称。</p>}
   </div>;
 }
 function Modal({title,icon,close,disabled,children,error}:{title:string;icon?:React.ReactNode;close:()=>void;disabled:boolean;children:React.ReactNode|((requestClose:()=>void)=>React.ReactNode);error:string}) {

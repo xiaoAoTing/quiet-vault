@@ -6,7 +6,7 @@ describe('encrypted vault', () => {
     const a = await createVault(password);
     const b = await createVault(password);
     expect(a.envelope.salt).not.toBe(b.envelope.salt);
-    const vault = { categories:[{id:'work',name:'工作'}],entries:[{id:'1',username:'alice',password:'secret-password',notes:'私密备注',categoryId:'work',updatedAt:'2026-01-01'}] };
+    const vault = { categories:[{id:'work',name:'工作',icon:'lucide:briefcase'}],entries:[{id:'1',username:'alice',password:'secret-password',notes:'私密备注',categoryId:'work',updatedAt:'2026-01-01'}] };
     const first = await seal(vault, a.key, a.envelope.salt);
     const second = await seal(vault, a.key, a.envelope.salt);
     expect(first.iv).not.toBe(second.iv);
@@ -34,6 +34,13 @@ describe('encrypted vault', () => {
     expect(()=>validateVault({categories:[],entries:[{id:'1'}]})).toThrow();
     expect(()=>validateVault({categories:[{id:'a',name:'A'},{id:'a',name:'B'}],entries:[]})).toThrow();
     expect(()=>validateVault({categories:[],entries:[{id:'1',username:'',password:'p',notes:'',categoryId:'missing',updatedAt:''}]})).toThrow();
+  });
+  it('accepts optional category icons and rejects unsafe names', () => {
+    expect(()=>validateVault({categories:[{id:'a',name:'A'}],entries:[]})).not.toThrow();
+    expect(()=>validateVault({categories:[{id:'a',name:'A',icon:'lucide:briefcase'}],entries:[]})).not.toThrow();
+    for (const icon of ['briefcase','lucide:','lucide:brief case','<script>','lucide:briefcase'.repeat(10),null]) {
+      expect(()=>validateVault({categories:[{id:'a',name:'A',icon}],entries:[]})).toThrow();
+    }
   });
   it('accepts legacy entries that still carry removed title/url fields', () => {
     const legacy = {categories:[],entries:[{id:'1',title:'Old name',username:'u',password:'p',url:'https://old.example',notes:'',categoryId:'',updatedAt:''}]};

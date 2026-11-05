@@ -1,5 +1,5 @@
 import { argon2id } from 'hash-wasm';
-export type Category = { id: string; name: string };
+export type Category = { id: string; name: string; icon?: string };
 export type Entry = { id: string; username: string; password: string; notes: string; categoryId: string; updatedAt: string };
 export type Vault = { categories: Category[]; entries: Entry[] };
 const params = { algorithm: 'Argon2id', memorySize: 65536, iterations: 3, parallelism: 1 } as const;
@@ -26,12 +26,17 @@ export function parseEnvelope(text: string): Envelope {
   if (bytes(e.salt).length !== 16 || bytes(e.iv).length !== 12 || bytes(e.ciphertext).length < 16) throw new Error('密文长度无效');
   return e;
 }
+export function categoryIconProblem(icon: unknown): string | null {
+  if (icon === undefined) return null;
+  if (typeof icon !== 'string' || icon.length > 80 || !/^[a-z0-9]+(?:-[a-z0-9]+)*:[a-z0-9]+(?:-[a-z0-9]+)*$/.test(icon)) return '分类图标格式无效';
+  return null;
+}
 export function validateVault(v: unknown): asserts v is Vault {
   const d = v as Vault;
   if (!d || !Array.isArray(d.categories) || !Array.isArray(d.entries)) throw new Error('保险库内容无效');
   const ids = new Set<string>();
   for (const c of d.categories) {
-    if (!c || typeof c.id !== 'string' || !c.id || typeof c.name !== 'string' || !c.name.trim() || ids.has(c.id)) throw new Error('分类内容无效');
+    if (!c || typeof c.id !== 'string' || !c.id || typeof c.name !== 'string' || !c.name.trim() || ids.has(c.id) || categoryIconProblem(c.icon)) throw new Error('分类内容无效');
     ids.add(c.id);
   }
   const entryIds = new Set<string>();
