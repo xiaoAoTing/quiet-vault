@@ -223,6 +223,31 @@ test('copies name, account, password and notes from the entry list', async ({pag
   await page.getByRole('button',{name:'复制 未命名条目 的名称、账号、密码和备注'}).click();
   expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe('密码：only-password');
 });
+test('saves entries that have no account or password', async ({page, context}) => {
+  await context.grantPermissions(['clipboard-read','clipboard-write']);
+  await page.goto('/');
+  await page.getByLabel('主密码',{exact:true}).fill(master);
+  await page.getByLabel('再次输入主密码').fill(master);
+  await page.getByRole('button',{name:'创建保险库'}).click();
+  await expect(page.getByRole('button',{name:'新增密码',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'新增密码',exact:true}).click();
+  await page.getByLabel('名称',{exact:true}).fill('营业执照');
+  await page.getByLabel('备注（非必填）').fill('统一社会信用代码：91440000XXXXXXXXXX\n注册地址：某某区某某街 3 号');
+  await page.getByRole('button',{name:'加密保存'}).click();
+  await expect(page.getByRole('button',{name:'编辑 营业执照',exact:true})).toBeVisible();
+  await expect(page.locator('dialog')).toHaveCount(0);
+  // 列表不再提示缺少账号
+  await expect(page.getByText('未填写账号')).toHaveCount(0);
+  await page.getByRole('button',{name:'复制 营业执照 的名称、账号、密码和备注'}).click();
+  expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe('名称：营业执照\n备注：统一社会信用代码：91440000XXXXXXXXXX\n注册地址：某某区某某街 3 号');
+  await page.reload();
+  await expect(page.getByRole('button',{name:'编辑 营业执照',exact:true})).toBeVisible();
+  // 账号、密码、名称、备注全空时不保存
+  await page.getByRole('button',{name:'新增密码',exact:true}).click();
+  await page.getByRole('button',{name:'加密保存'}).click();
+  await expect(page.locator('dialog').getByRole('alert')).toContainText('至少填写');
+  await expect(page.locator('dialog')).toBeVisible();
+});
 test('accepts .json backups and does not restrict the picker on iOS', async ({page}, testInfo) => {
   await page.goto('/');
   const accept = await page.locator('input[type=file]').getAttribute('accept');
@@ -356,11 +381,17 @@ test('saves the entry with the Cmd/Ctrl+S shortcut', async ({page}) => {
   await page.keyboard.press('ControlOrMeta+s');
   await expect(page.getByRole('button',{name:'编辑 saved@example.com',exact:true})).toBeVisible();
   await expect(page.locator('dialog')).toHaveCount(0);
-  // 必填密码为空时快捷键不会提交
+  // 密码非必填：只填账号也能保存
   await page.getByRole('button',{name:'新增密码',exact:true}).click();
   await page.getByLabel('账号',{exact:true}).fill('no-password@example.com');
   await page.keyboard.press('ControlOrMeta+s');
+  await expect(page.getByRole('button',{name:'编辑 no-password@example.com',exact:true})).toBeVisible();
+  await expect(page.locator('dialog')).toHaveCount(0);
+  // 所有字段都为空时快捷键不会提交
+  await page.getByRole('button',{name:'新增密码',exact:true}).click();
+  await page.keyboard.press('ControlOrMeta+s');
   await expect(page.locator('dialog')).toBeVisible();
+  await expect(page.locator('dialog').getByRole('alert')).toContainText('至少填写');
 });
 test('moves the local-storage guidance onto a dedicated about page', async ({page}) => {
   await page.goto('/');

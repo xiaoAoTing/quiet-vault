@@ -25,9 +25,9 @@ const initialTheme = readTheme();
 applyTheme(initialTheme);
 const blankEntry = (): Entry => ({ id: crypto.randomUUID(), name: '', username: '', password: '', notes: '', categoryId: '', updatedAt: '' });
 function entryLabel(entry: Entry) { return entry.name.trim() || entry.username || '未命名条目'; }
-function entrySubtitle(entry: Entry) { return entry.name.trim() ? entry.username || '未填写账号' : entry.username ? '未填写名称' : '未填写账号'; }
+function entrySubtitle(entry: Entry) { return entry.name.trim() ? entry.username : entry.username ? '未填写名称' : entry.password ? '未填写账号' : ''; }
 function entryClipboard(entry: Entry) {
-  return [entry.name.trim() && `名称：${entry.name.trim()}`, entry.username && `账号：${entry.username}`, `密码：${entry.password}`, entry.notes?.trim() && `备注：${entry.notes.trim()}`].filter(Boolean).join('\n');
+  return [entry.name.trim() && `名称：${entry.name.trim()}`, entry.username && `账号：${entry.username}`, entry.password && `密码：${entry.password}`, entry.notes?.trim() && `备注：${entry.notes.trim()}`].filter(Boolean).join('\n');
 }
 // 备份文件名用设备本地时间，避免 UTC 造成的日期/时刻偏差。
 function localStamp(date = new Date()) {
@@ -328,7 +328,7 @@ function App() {
     {editor && vault && <Modal error={error} title={vault.entries.some(e=>e.id===editor.id)?'编辑密码':'新增密码'} icon={<KeyRound size={18}/>} close={()=>{entrySaveRef.current=null;setEditor(null);}} disabled={busy}>
       {requestClose => {
       const submit = () => {
-        if (!editor.password) { setError('请填写密码'); return; }
+        if (!editor.name.trim() && !editor.username.trim() && !editor.password && !editor.notes?.trim()) { setError('请至少填写名称、账号、密码或备注中的一项'); return; }
         const next={...editor,username:editor.username.trim(),notes:editor.notes?.trim() || undefined,updatedAt:new Date().toISOString()};
         void save({...vault,entries:[...vault.entries.filter(x=>x.id!==next.id),next]},requestClose);
       };
