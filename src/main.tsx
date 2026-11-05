@@ -5,7 +5,7 @@ import { createVault, openVault, parseEnvelope, seal, masterPasswordProblem, MAX
 import './style.css';
 const STORAGE = 'quiet-vault.v1';
 const THEME_KEY = 'quiet-vault.theme';
-// iOS document pickers filter by UTI and disable files with unregistered extensions like .qvault.
+// iOS document pickers grey out unknown extensions like .qvault, so exports use .json.
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 type Session = { key: CryptoKey; vault: Vault; envelope: Envelope };
 type Theme = 'light' | 'dark';
@@ -65,10 +65,8 @@ function App() {
       try { const raw = localStorage.getItem(STORAGE); version.current = raw; setStored(raw ? parseEnvelope(raw) : null); setStartupError(false); setError('另一个标签页已更新保险库，请重新解锁。'); }
       catch { setStartupError(true); setError('另一个标签页写入了无法读取的数据，请导入备份。'); }
     };
-    const hide = () => { if (document.hidden && (sessionRef.current || busyRef.current)) lock(); };
-    document.addEventListener('visibilitychange', hide);
     window.addEventListener('storage', changed);
-    return () => { window.removeEventListener('storage', changed); document.removeEventListener('visibilitychange', hide); };
+    return () => window.removeEventListener('storage', changed);
   }, []);
   useEffect(() => {
     if (!session) return;
@@ -97,7 +95,6 @@ function App() {
   async function persist(next: Session, token: number) {
     if (!navigator.locks) throw new Error('当前浏览器不支持安全的多标签页保存，请更新浏览器');
     return navigator.locks.request(STORAGE, () => {
-      if (document.hidden) { lock(); return false; }
       if (token !== generation.current) return false;
       // Compare immediately before writing: stale tabs must never silently overwrite a newer vault.
       if (localStorage.getItem(STORAGE) !== version.current) { lock(); setError('保险库已在其他标签页改变，请刷新后重新解锁'); return false; }
@@ -141,7 +138,7 @@ function App() {
     const envelope = sessionRef.current?.envelope ?? stored;
     if (!envelope) return;
     const url = URL.createObjectURL(new Blob([JSON.stringify(envelope)], { type: 'application/json' }));
-    const a = document.createElement('a'); a.href = url; a.download = `quiet-vault-${localStamp()}.qvault`; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+    const a = document.createElement('a'); a.href = url; a.download = `quiet-vault-${localStamp()}.json`; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
     setNotice('已请求下载密文备份，请确认文件已保存');
   }
   async function copy(value: string) { try { await navigator.clipboard.writeText(value); setNotice('已复制。使用后请清理剪贴板'); } catch { setError('无法访问剪贴板，请显示后手动复制'); } }
@@ -150,7 +147,7 @@ function App() {
   const entries = vault?.entries.filter(e => (filter === '*' || e.categoryId === filter) && [e.title,e.username,e.url,e.notes,vault.categories.find(c=>c.id===e.categoryId)?.name ?? '未分类'].join(' ').toLocaleLowerCase().includes(query.toLocaleLowerCase())) ?? [];
   const categoryMatches = vault?.categories.filter(c=>c.name.toLocaleLowerCase().includes(categoryQuery.toLocaleLowerCase())) ?? [];
   return <>
-    <input ref={fileRef} type="file" accept={isIOS ? undefined : '.qvault,.json,application/json'} hidden onChange={e => { void importFile(e.target.files?.[0]); e.target.value = ''; }}/>
+    <input ref={fileRef} type="file" accept={isIOS ? undefined : '.json,.qvault,application/json'} hidden onChange={e => { void importFile(e.target.files?.[0]); e.target.value = ''; }}/>
     {!session ? <main className="gate">
       <div className="gate-top"><div className="gate-brand"><ShieldCheck size={30}/><span>quiet vault<span className="brand-dot">.</span></span></div><ThemeToggle theme={theme} onToggle={toggleTheme}/></div>
       <section className="gate-card"><div className="lock-emblem"><LockKeyhole size={30}/></div><p className="eyebrow">YOUR PASSWORDS. YOUR CONTROL.</p>
@@ -182,7 +179,7 @@ function App() {
           <div className="save-status"><span/><span>{busy ? '正在加密保存…':'所有更改已加密保存在此浏览器'}</span><span className="sort-note">按名称排序</span></div>
           <section className="entry-list" aria-label="密码列表">{entries.length ? entries.sort((a,b)=>a.title.localeCompare(b.title)).map(e=><article className="entry" key={e.id}><time className="entry-date" dateTime={e.updatedAt} title={`更新时间：${e.updatedAt}`} aria-label={`更新时间：${e.updatedAt}`}>{/^\d{4}-\d{2}-\d{2}/.test(e.updatedAt) ? e.updatedAt.slice(0,10) : '—'}</time><button className="entry-main" onClick={()=>{setEditor({...e});setRevealed(false);}}><strong>{e.title}</strong><span>{e.username || e.url || '未填写账号'}</span></button><span className="tag">{vault!.categories.find(c=>c.id===e.categoryId)?.name ?? '未分类'}</span><button className="icon-button" aria-label={`复制 ${e.title} 密码`} onClick={()=>void copy(e.password)}><Copy size={18}/></button><button className="icon-button" aria-label={`编辑 ${e.title}`} onClick={()=>{setEditor({...e});setRevealed(false);}}><Pencil size={17}/></button></article>) : <div className="empty"><div className="empty-icon"><KeyRound size={30}/></div><h2>{query ? '没有匹配的密码' : '从第一个密码开始'}</h2><p>{query ? '试试其他关键词，或选择其他分类。' : '添加登录信息，或导入已有的加密备份。'}</p>{!query && <button onClick={()=>{setEditor({...blankEntry(),categoryId:filter==='*'?'':filter});setRevealed(false);}}><Plus size={17}/>添加密码</button>}</div>}</section>
           <div className="backup-note"><ShieldCheck size={22}/><div><strong>本地保存，安心掌控</strong><p>浏览器数据可能被清理。定期导出加密备份，在其他设备导入即可继续使用。</p></div><button onClick={exportFile} disabled={busy}>备份保险库<ArrowRight size={17}/></button></div>
-          <footer><span><LockKeyhole size={13}/>端到本地加密 · 无后台服务</span><span>切到后台会丢弃未保存表单 · 闲置 5 分钟锁定</span></footer>
+          <footer><span><LockKeyhole size={13}/>端到本地加密 · 无后台服务</span><span>闲置 5 分钟自动锁定 · 也可随时手动锁定</span></footer>
         </div>
       </main>
     </div>}

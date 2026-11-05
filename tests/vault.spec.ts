@@ -51,6 +51,7 @@ test('CRUD, category filtering, encrypted persistence, lock, backup and import',
   const download = page.waitForEvent('download');
   await page.getByRole('button',{name:'导出备份',exact:true}).click();
   const file = await download; const path = await file.path();
+  expect(file.suggestedFilename()).toMatch(/^quiet-vault-\d{4}-\d{2}-\d{2}_\d{2}-\d{2}-\d{2}\.json$/);
   await page.getByRole('button',{name:'锁定',exact:true}).click();
   await page.getByLabel('主密码',{exact:true}).fill('wrong');
   await page.getByRole('button',{name:'解锁保险库'}).click();
@@ -91,7 +92,7 @@ test('rejects broken imports and preserves existing ciphertext',async({page})=>{
   await expect(page.getByRole('alert')).toContainText('不支持');
   expect(await page.evaluate(()=>localStorage.getItem('quiet-vault.v1'))).toBe(original);
 });
-test('hiding during key derivation cancels unlock', async ({page}) => {
+test('keeps the vault unlocked when the page is hidden', async ({page}) => {
   await page.goto('/');
   await page.getByLabel('主密码',{exact:true}).fill(master);
   await page.getByLabel('再次输入主密码').fill(master);
@@ -104,15 +105,13 @@ test('hiding during key derivation cancels unlock', async ({page}) => {
     Object.defineProperty(document,'hidden',{configurable:true,get:()=>true});
     document.dispatchEvent(new Event('visibilitychange'));
   });
-  await expect(page.getByRole('button',{name:'解锁保险库'})).toBeEnabled();
-  await expect(page.getByRole('heading',{name:'欢迎回来'})).toBeVisible();
-  await expect(page.getByRole('heading',{name:/所有密码/})).toHaveCount(0);
+  await expect(page.getByRole('heading',{name:/所有密码/})).toBeVisible();
 });
-test('does not restrict the file picker by extension on iOS', async ({page}, testInfo) => {
+test('accepts .json backups and does not restrict the picker on iOS', async ({page}, testInfo) => {
   await page.goto('/');
   const accept = await page.locator('input[type=file]').getAttribute('accept');
   if (testInfo.project.name === 'mobile') expect(accept).toBeNull();
-  else expect(accept).toContain('.qvault');
+  else expect(accept).toContain('.json');
 });
 test('requires a strong master password when creating a vault', async ({page}) => {
   await page.goto('/');

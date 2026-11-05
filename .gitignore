@@ -3,6 +3,7 @@ dist/
 playwright-report/
 test-results/
 *.qvault
+quiet-vault-*.json
 .env*
 .DS_Store
 /server.log

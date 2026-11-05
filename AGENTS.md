@@ -6,4 +6,4 @@
 - 提交前至少运行 `npm run build`；涉及逻辑或交互的改动同时运行 `npm test` 与 `npm run test:e2e`。
 - 提交信息使用 Conventional Commits（`feat:`、`fix:`、`style:`、`test:`、`docs:`、`chore:` 等），用英文书写。
 - 不强制推送，不改写已推送的历史。
-- 不提交 `node_modules/`、`dist/`、`test-results/`、`playwright-report/`、`*.qvault`、`.env*`、`server.log`（已在 `.gitignore` 中忽略）。
+- 不提交 `node_modules/`、`dist/`、`test-results/`、`playwright-report/`、`*.qvault`、`quiet-vault-*.json`、`.env*`、`server.log`（已在 `.gitignore` 中忽略）。
