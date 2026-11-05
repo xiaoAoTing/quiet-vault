@@ -1,6 +1,6 @@
 import { argon2id } from 'hash-wasm';
 export type Category = { id: string; name: string; icon?: string };
-export type Entry = { id: string; name: string; username: string; password: string; categoryId: string; updatedAt: string };
+export type Entry = { id: string; name: string; username: string; password: string; notes?: string; categoryId: string; updatedAt: string };
 export type Vault = { categories: Category[]; entries: Entry[] };
 const params = { algorithm: 'Argon2id', memorySize: 65536, iterations: 3, parallelism: 1 } as const;
 export type Envelope = { format: 'quiet-vault'; version: 1; kdf: typeof params; salt: string; iv: string; ciphertext: string };
@@ -41,19 +41,18 @@ export function validateVault(v: unknown): asserts v is Vault {
   }
   const entryIds = new Set<string>();
   for (const e of d.entries) {
-    if (!e || ['id','name','username','password','categoryId','updatedAt'].some(k => typeof e[k as keyof Entry] !== 'string') || !e.id || entryIds.has(e.id) || (e.categoryId && !ids.has(e.categoryId))) throw new Error('条目内容无效');
+    if (!e || ['id','name','username','password','categoryId','updatedAt'].some(k => typeof e[k as keyof Entry] !== 'string') || (e.notes !== undefined && typeof e.notes !== 'string') || !e.id || entryIds.has(e.id) || (e.categoryId && !ids.has(e.categoryId))) throw new Error('条目内容无效');
     entryIds.add(e.id);
   }
 }
-// Earlier vaults stored a free-form note where the platform name now lives.
+// Earlier vaults stored a free-form note where the platform name now lives; entries without a name still carry it in `notes`.
 function migrateEntries(value: unknown) {
   const entries = (value as { entries?: unknown } | null)?.entries;
   if (!Array.isArray(entries)) return;
   for (const entry of entries) {
     if (!entry || typeof entry !== 'object') continue;
     const record = entry as Record<string, unknown>;
-    if (typeof record.name !== 'string' && typeof record.notes === 'string') record.name = record.notes;
-    delete record.notes;
+    if (typeof record.name !== 'string' && typeof record.notes === 'string') { record.name = record.notes; delete record.notes; }
   }
 }
 export async function deriveKey(password: string, salt: Uint8Array): Promise<CryptoKey> {

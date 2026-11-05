@@ -23,7 +23,7 @@ function applyTheme(theme: Theme) {
 }
 const initialTheme = readTheme();
 applyTheme(initialTheme);
-const blankEntry = (): Entry => ({ id: crypto.randomUUID(), name: '', username: '', password: '', categoryId: '', updatedAt: '' });
+const blankEntry = (): Entry => ({ id: crypto.randomUUID(), name: '', username: '', password: '', notes: '', categoryId: '', updatedAt: '' });
 function entryLabel(entry: Entry) { return entry.name.trim() || entry.username || '未命名条目'; }
 function entrySubtitle(entry: Entry) { return entry.name.trim() ? entry.username || '未填写账号' : entry.username ? '未填写名称' : '未填写账号'; }
 function entryClipboard(entry: Entry) {
@@ -307,10 +307,11 @@ function App() {
     </div>}
     {editor && vault && <Modal error={error} title={vault.entries.some(e=>e.id===editor.id)?'编辑密码':'新增密码'} icon={<KeyRound size={18}/>} close={()=>setEditor(null)} disabled={busy}>
       {requestClose => (
-      <form onSubmit={e=>{e.preventDefault();const next={...editor,username:editor.username.trim(),updatedAt:new Date().toISOString()};void save({...vault,entries:[...vault.entries.filter(x=>x.id!==next.id),next]},requestClose);}}>
+      <form onSubmit={e=>{e.preventDefault();const next={...editor,username:editor.username.trim(),notes:editor.notes?.trim() || undefined,updatedAt:new Date().toISOString()};void save({...vault,entries:[...vault.entries.filter(x=>x.id!==next.id),next]},requestClose);}}>
         <NameCombobox value={editor.name} options={nameOptions} onChange={name=>setEditor({...editor,name})}/>
         <label>账号<input autoComplete="off" maxLength={1000} value={editor.username} onChange={e=>setEditor({...editor,username:e.target.value})}/></label>
         <label>密码<div className="password-field"><input id="entry-password" required type={revealed?'text':'password'} autoComplete="new-password" maxLength={4096} value={editor.password} onChange={e=>setEditor({...editor,password:e.target.value})}/><div className="password-tools"><button type="button" aria-label={revealed?'隐藏密码':'显示密码'} onClick={()=>setRevealed(!revealed)}>{revealed?<EyeOff size={18}/>:<Eye size={18}/>}</button><button type="button" aria-label="复制密码" onClick={()=>void copy(editor.password)}><Copy size={18}/></button></div></div></label>
+        <label>备注（非必填）<textarea rows={3} maxLength={2000} placeholder="添加备注，例如安全问题、恢复方式…" value={editor.notes ?? ''} onChange={e=>setEditor({...editor,notes:e.target.value})}/></label>
         <div className="field-label" id="entry-category-label">分类</div>
         <div className="category-field" role="group" aria-labelledby="entry-category-label">
           <button type="button" className="category-chip" aria-pressed={editor.categoryId===''} onClick={()=>setEditor({...editor,categoryId:''})}><CategoryIcon icon={DEFAULT_CATEGORY_ICON} size={14}/>未分类</button>

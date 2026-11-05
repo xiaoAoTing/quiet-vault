@@ -276,6 +276,32 @@ test('suggests existing names in the name field and supports keyboard and mouse 
   await page.getByRole('button',{name:'关闭弹窗'}).click();
   await expect(page.locator('dialog')).toHaveCount(0);
 });
+test('stores an optional note per entry and keeps it across reload', async ({page}) => {
+  await page.goto('/');
+  await page.getByLabel('主密码',{exact:true}).fill(master);
+  await page.getByLabel('再次输入主密码').fill(master);
+  await page.getByRole('button',{name:'创建保险库'}).click();
+  await expect(page.getByRole('button',{name:'新增密码',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'新增密码',exact:true}).click();
+  await page.getByLabel('名称',{exact:true}).fill('备用邮箱');
+  await page.getByLabel('账号',{exact:true}).fill('alice@example.com');
+  await page.getByLabel('密码',{exact:true}).fill('secret-entry-password');
+  await page.getByLabel('备注（非必填）').fill('安全问题：第一只宠物');
+  await page.getByRole('button',{name:'加密保存'}).click();
+  await expect(page.getByRole('button',{name:'编辑 备用邮箱',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'编辑 备用邮箱',exact:true}).click();
+  await expect(page.getByLabel('备注（非必填）')).toHaveValue('安全问题：第一只宠物');
+  await page.getByRole('button',{name:'关闭弹窗'}).click();
+  await page.reload();
+  await page.getByRole('button',{name:'编辑 备用邮箱',exact:true}).click();
+  await expect(page.getByLabel('备注（非必填）')).toHaveValue('安全问题：第一只宠物');
+  await page.getByRole('button',{name:'关闭弹窗'}).click();
+  // 备注非必填：不填写也能保存
+  await page.getByRole('button',{name:'新增密码',exact:true}).click();
+  await page.getByLabel('密码',{exact:true}).fill('only-password');
+  await page.getByRole('button',{name:'加密保存'}).click();
+  await expect(page.getByRole('button',{name:'复制 未命名条目 的名称、账号和密码'})).toBeVisible();
+});
 test('requires a strong master password when creating a vault', async ({page}) => {
   await page.goto('/');
   const password = page.getByLabel('主密码',{exact:true});

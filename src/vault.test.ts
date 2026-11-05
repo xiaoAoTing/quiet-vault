@@ -6,7 +6,7 @@ describe('encrypted vault', () => {
     const a = await createVault(password);
     const b = await createVault(password);
     expect(a.envelope.salt).not.toBe(b.envelope.salt);
-    const vault = { categories:[{id:'work',name:'工作',icon:'lucide:briefcase'}],entries:[{id:'1',name:'私密名称',username:'alice',password:'secret-password',categoryId:'work',updatedAt:'2026-01-01'}] };
+    const vault = { categories:[{id:'work',name:'工作',icon:'lucide:briefcase'}],entries:[{id:'1',name:'私密名称',username:'alice',password:'secret-password',notes:'安全问题：第一只宠物',categoryId:'work',updatedAt:'2026-01-01'}] };
     const first = await seal(vault, a.key, a.envelope.salt);
     const second = await seal(vault, a.key, a.envelope.salt);
     expect(first.iv).not.toBe(second.iv);
@@ -45,6 +45,22 @@ describe('encrypted vault', () => {
   it('accepts legacy entries that still carry removed title/url fields', () => {
     const legacy = {categories:[],entries:[{id:'1',name:'New name',title:'Old name',username:'u',password:'p',url:'https://old.example',categoryId:'',updatedAt:''}]};
     expect(()=>validateVault(legacy)).not.toThrow();
+  });
+  it('accepts optional notes and rejects non-string notes', () => {
+    const base = {categories:[],entries:[]};
+    expect(()=>validateVault(base)).not.toThrow();
+    expect(()=>validateVault({categories:[],entries:[{id:'1',name:'',username:'',password:'p',notes:'一条备注',categoryId:'',updatedAt:''}]})).not.toThrow();
+    expect(()=>validateVault({categories:[],entries:[{id:'1',name:'',username:'',password:'p',notes:42,categoryId:'',updatedAt:''}]})).toThrow();
+  });
+  it('keeps notes on entries that already have a name', async () => {
+    const password = 'A long test passphrase 2026';
+    const { key, envelope } = await createVault(password);
+    const iv = crypto.getRandomValues(new Uint8Array(12));
+    const plain = new TextEncoder().encode(JSON.stringify({categories:[],entries:[{id:'1',name:'平台',username:'alice',password:'p',notes:'恢复码在保险箱',categoryId:'',updatedAt:''}]}));
+    const ciphertext = new Uint8Array(await crypto.subtle.encrypt({name:'AES-GCM',iv,additionalData:new TextEncoder().encode('quiet-vault:1'),tagLength:128}, key, plain));
+    const b64 = (value: Uint8Array) => btoa(String.fromCharCode(...value));
+    const vault = await decryptVault(parseEnvelope(JSON.stringify({...envelope, iv: b64(iv), ciphertext: b64(ciphertext)})), key);
+    expect(vault.entries[0]).toMatchObject({ name: '平台', notes: '恢复码在保险箱' });
   });
   it('migrates legacy notes into the platform name', async () => {
     const password = 'A long test passphrase 2026';
