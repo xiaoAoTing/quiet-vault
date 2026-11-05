@@ -14,7 +14,7 @@ test('CRUD, category filtering, encrypted persistence, lock, backup and import',
   await page.getByLabel('主密码',{exact:true}).fill(master);
   await page.getByLabel('再次输入主密码').fill(master);
   await page.getByRole('button',{name:'创建保险库'}).click();
-  await expect(page.getByRole('heading',{name:/所有密码/})).toBeVisible();
+  await expect(page.getByRole('button',{name:'新增密码',exact:true})).toBeVisible();
   await manageCategories(page);
   await page.getByLabel('新分类名称').fill('工作');
   await page.getByRole('button',{name:'添加分类',exact:true}).click();
@@ -85,7 +85,7 @@ test('rejects broken imports and preserves existing ciphertext',async({page})=>{
   await page.getByLabel('主密码',{exact:true}).fill(master);
   await page.getByLabel('再次输入主密码').fill(master);
   await page.getByRole('button',{name:'创建保险库'}).click();
-  await expect(page.getByRole('heading',{name:/所有密码/})).toBeVisible();
+  await expect(page.getByRole('button',{name:'新增密码',exact:true})).toBeVisible();
   const original=await page.evaluate(()=>localStorage.getItem('quiet-vault.v1'));
   await page.locator('input[type=file]').setInputFiles({name:'bad.qvault',mimeType:'application/json',buffer:Buffer.from('{}')});
   await expect(page.getByRole('alert')).toContainText('不支持');
@@ -96,7 +96,7 @@ test('keeps the vault unlocked when the page is hidden', async ({page}) => {
   await page.getByLabel('主密码',{exact:true}).fill(master);
   await page.getByLabel('再次输入主密码').fill(master);
   await page.getByRole('button',{name:'创建保险库'}).click();
-  await expect(page.getByRole('heading',{name:/所有密码/})).toBeVisible();
+  await expect(page.getByRole('button',{name:'新增密码',exact:true})).toBeVisible();
   await page.getByRole('button',{name:'锁定',exact:true}).click();
   await page.getByLabel('主密码',{exact:true}).fill(master);
   await page.getByRole('button',{name:'解锁保险库'}).click();
@@ -104,7 +104,7 @@ test('keeps the vault unlocked when the page is hidden', async ({page}) => {
     Object.defineProperty(document,'hidden',{configurable:true,get:()=>true});
     document.dispatchEvent(new Event('visibilitychange'));
   });
-  await expect(page.getByRole('heading',{name:/所有密码/})).toBeVisible();
+  await expect(page.getByRole('button',{name:'新增密码',exact:true})).toBeVisible();
 });
 test('accepts .json backups and does not restrict the picker on iOS', async ({page}, testInfo) => {
   await page.goto('/');
@@ -136,5 +136,5 @@ test('requires a strong master password when creating a vault', async ({page}) =
   expect(await page.evaluate(()=>localStorage.getItem('quiet-vault.v1'))).toBeNull();
   await confirm.fill(master);
   await create.click();
-  await expect(page.getByRole('heading',{name:/所有密码/})).toBeVisible();
+  await expect(page.getByRole('button',{name:'新增密码',exact:true})).toBeVisible();
 });
