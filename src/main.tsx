@@ -12,6 +12,8 @@ const THEME_KEY = 'quiet-vault.theme';
 const LOCKED_KEY = 'quiet-vault.locked';
 // iOS document pickers grey out unknown extensions like .qvault, so exports use .json.
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+// 密码框用文本输入 + CSS 掩码，避免 Chrome/Safari 把它当成密码字段弹出自动填充；不支持的浏览器回退为 type="password"。
+const supportsTextSecurity = typeof CSS !== 'undefined' && CSS.supports('-webkit-text-security', 'disc');
 type Session = { key: CryptoKey; vault: Vault; envelope: Envelope };
 type Theme = 'light' | 'dark';
 function readTheme(): Theme {
@@ -338,7 +340,7 @@ function App() {
       return <div>
         <NameCombobox value={editor.name} options={nameOptions} onChange={name=>setEditor({...editor,name})}/>
         <label>账号<input autoComplete="new-password" maxLength={1000} value={editor.username} onChange={e=>setEditor({...editor,username:e.target.value})}/></label>
-        <label>密码<div className="password-field"><input id="entry-password" type={revealed?'text':'password'} autoComplete="new-password" maxLength={4096} value={editor.password} onChange={e=>setEditor({...editor,password:e.target.value})}/><div className="password-tools"><button type="button" aria-label={revealed?'隐藏密码':'显示密码'} onClick={()=>setRevealed(!revealed)}>{revealed?<EyeOff size={18}/>:<Eye size={18}/>}</button><button type="button" aria-label="复制密码" onClick={()=>void copy(editor.password)}><Copy size={18}/></button></div></div></label>
+        <label>密码<div className="password-field"><input id="entry-password" type={revealed || supportsTextSecurity ? 'text' : 'password'} className={!revealed && supportsTextSecurity ? 'masked-secret' : undefined} autoComplete={supportsTextSecurity ? 'off' : 'new-password'} autoCapitalize="off" autoCorrect="off" spellCheck={false} maxLength={4096} value={editor.password} onChange={e=>setEditor({...editor,password:e.target.value})}/><div className="password-tools"><button type="button" aria-label={revealed?'隐藏密码':'显示密码'} onClick={()=>setRevealed(!revealed)}>{revealed?<EyeOff size={18}/>:<Eye size={18}/>}</button><button type="button" aria-label="复制密码" onClick={()=>void copy(editor.password)}><Copy size={18}/></button></div></div></label>
         <label>备注（非必填）<textarea rows={3} maxLength={2000} autoComplete="off" placeholder="添加备注，例如安全问题、恢复方式…" value={editor.notes ?? ''} onChange={e=>setEditor({...editor,notes:e.target.value})}/></label>
         <div className="field-label" id="entry-category-label">分类</div>
         <div className="category-field" role="group" aria-labelledby="entry-category-label">

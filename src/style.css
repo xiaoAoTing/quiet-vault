@@ -576,6 +576,7 @@ dialog.closing .modal-heading, dialog.closing .modal-body { animation: modal-con
 .modal-body > .muted { margin-top: 14px; font-size: 13px; }
 .password-field { position: relative; margin-top: 8px; }
 .password-field input { margin-top: 0; padding-right: 96px; }
+.masked-secret { -webkit-text-security: disc; }
 .password-tools { position: absolute; top: 50%; right: 7px; display: flex; gap: 2px; transform: translateY(-50%); }
 .password-tools button { width: 38px; min-height: 38px; padding: 0; border-radius: 50%; color: var(--muted); background: transparent; }
 .password-tools button:hover { color: var(--accent); background: var(--chip); }
