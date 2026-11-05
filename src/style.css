@@ -250,7 +250,7 @@ h2 { color: var(--heading); font-size: 18px; font-weight: 600; letter-spacing: -
 }
 .primary:hover:not(:disabled) { color: var(--primary-hover-text); background: var(--primary-grad); box-shadow: var(--primary-shadow-hover); transform: translateY(-1px); }
 .primary:active:not(:disabled) { transform: translateY(0) scale(.99); box-shadow: var(--primary-shadow); }
-.wide { width: 100%; margin-top: 18px; }
+.wide { width: 100%; margin-top: 16px; }
 
 .brand, .gate-brand { display: flex; gap: 11px; align-items: center; color: var(--heading); text-decoration: none; font-size: 17px; font-weight: 700; letter-spacing: -.02em; }
 .brand svg, .gate-brand svg {
@@ -268,20 +268,21 @@ a.brand:hover { color: var(--accent); }
   display: flex;
   flex-direction: column;
   width: 100%;
-  max-width: 600px;
+  max-width: 560px;
   min-height: 100svh;
   margin: 0 auto;
-  padding: 26px 24px 32px;
+  padding: 24px 24px 28px;
 }
-.gate-top { display: flex; align-items: center; gap: 14px; margin-bottom: 30px; animation: settle 560ms cubic-bezier(.22, 1, .36, 1) both; }
-.gate-brand { flex: 1; min-width: 0; }
+.gate-top { display: flex; align-items: center; gap: 13px; margin-bottom: 24px; animation: settle 560ms cubic-bezier(.22, 1, .36, 1) both; }
+.gate-brand { flex: 1; min-width: 0; font-size: 16px; }
+.gate-brand svg { width: 34px; height: 34px; padding: 6px; border-radius: 12px; }
 .gate-brand::after { content: 'LOCAL / PRIVATE'; margin-left: auto; color: var(--faint); font-size: 10px; font-weight: 500; letter-spacing: .18em; white-space: nowrap; }
 .gate-card {
   width: 100%;
   margin: auto 0;
-  padding: 40px 38px 32px;
+  padding: 34px 32px 28px;
   border: 1px solid var(--card-border);
-  border-radius: 28px;
+  border-radius: 24px;
   background: linear-gradient(165deg, var(--card-strong), var(--card));
   box-shadow: var(--shadow-dialog-inset), var(--shadow-dialog);
   backdrop-filter: blur(22px) saturate(150%);
@@ -292,25 +293,28 @@ a.brand:hover { color: var(--accent); }
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 56px;
-  height: 56px;
-  margin-bottom: 22px;
-  border-radius: 18px;
+  width: 50px;
+  height: 50px;
+  margin-bottom: 18px;
+  border-radius: 16px;
   color: var(--accent-strong);
   background: linear-gradient(145deg, var(--accent-wash-strong), var(--accent-wash));
-  box-shadow: inset 0 1px 0 var(--glass-highlight), 0 0 0 6px var(--accent-wash), 0 16px 32px -20px rgba(31, 62, 45, .45);
+  box-shadow: inset 0 1px 0 var(--glass-highlight), 0 0 0 5px var(--accent-wash), 0 16px 32px -20px rgba(31, 62, 45, .45);
 }
-.lock-emblem svg { width: 26px; height: 26px; }
+.lock-emblem svg { width: 24px; height: 24px; }
 .gate-restoring .lock-emblem { animation: breathe 2.4s ease-in-out infinite; }
-.gate-card h1 { margin-bottom: 12px; font-size: 29px; }
-.gate-card form { margin-top: 28px; }
-.password-hint { margin: 10px 0 0; color: var(--muted); font-size: 12px; line-height: 1.7; }
-.gate-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 14px; }
-.gate-actions button { flex: 1; min-height: 42px; padding-inline: 12px; font-size: 13px; color: var(--muted); background: var(--chip); }
+.gate-card h1 { margin-bottom: 10px; font-size: 26px; }
+.gate-card .muted { font-size: 13px; line-height: 1.7; }
+.gate-card form { margin-top: 22px; }
+.gate-card label { margin: 16px 0 7px; }
+.gate-card input { min-height: 46px; padding: 10px 14px; border-radius: 12px; }
+.password-hint { margin: 9px 0 0; color: var(--muted); font-size: 11.5px; line-height: 1.65; }
+.gate-actions { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 12px; }
+.gate-actions button { flex: 1; min-height: 40px; padding-inline: 12px; font-size: 12.5px; color: var(--muted); background: var(--chip); }
 .gate-actions button:hover { color: var(--accent); background: var(--chip-hover); }
-.security-note { display: flex; align-items: center; gap: 10px; margin-top: 28px; padding: 13px 16px; border-radius: 14px; color: var(--accent-muted); background: var(--accent-wash); font-size: 12px; line-height: 1.6; }
-.security-note svg { color: var(--accent); width: 17px; height: 17px; }
-.gate-foot { margin-top: 34px; color: var(--faint); font-size: 12px; line-height: 1.9; text-align: center; animation: rise 640ms cubic-bezier(.22, 1, .36, 1) 180ms both; }
+.security-note { display: flex; align-items: center; gap: 9px; margin-top: 22px; padding: 11px 14px; border-radius: 12px; color: var(--accent-muted); background: var(--accent-wash); font-size: 11.5px; line-height: 1.6; }
+.security-note svg { color: var(--accent); width: 16px; height: 16px; }
+.gate-foot { margin-top: 26px; color: var(--faint); font-size: 11.5px; line-height: 1.8; text-align: center; animation: rise 640ms cubic-bezier(.22, 1, .36, 1) 180ms both; }
 
 .theme-toggle { flex-shrink: 0; min-height: 38px; padding: 7px 12px; gap: 7px; font-size: 12px; color: var(--muted); background: var(--chip); }
 .theme-toggle:hover { color: var(--accent); background: var(--chip-hover); }
@@ -814,17 +818,19 @@ dialog.closing .modal-heading, dialog.closing .modal-body { animation: modal-con
   .about-warn { padding: 10px 12px; }
   .about-steps li { grid-template-columns: 24px minmax(0, 1fr); gap: 9px; }
   .about-steps li::before { width: 24px; height: 24px; border-radius: 8px; font-size: 11px; }
-  .gate { padding: 18px 18px 26px; }
-  .gate-top { margin-bottom: 22px; gap: 10px; }
-  .gate-brand { font-size: 15.5px; }
-  .gate-brand::after { content: 'LOCAL'; font-size: 9.5px; }
-  .gate-card { padding: 30px 22px 24px; border-radius: 24px; }
-  .lock-emblem { width: 50px; height: 50px; border-radius: 16px; margin-bottom: 18px; }
-  .lock-emblem svg { width: 23px; height: 23px; }
-  .gate-card h1 { font-size: 25px; }
-  .gate-card .muted { font-size: 13px; }
-  .gate-card form { margin-top: 24px; }
-  .gate-foot { margin-top: 26px; }
+  .gate { padding: 16px 16px 22px; }
+  .gate-top { margin-bottom: 18px; gap: 9px; }
+  .gate-brand { font-size: 15px; }
+  .gate-brand svg { width: 32px; height: 32px; padding: 5px; border-radius: 11px; }
+  .gate-brand::after { content: 'LOCAL'; font-size: 9px; }
+  .gate-card { padding: 26px 20px 22px; border-radius: 22px; }
+  .lock-emblem { width: 46px; height: 46px; border-radius: 15px; margin-bottom: 16px; }
+  .lock-emblem svg { width: 21px; height: 21px; }
+  .gate-card h1 { font-size: 23px; }
+  .gate-card .muted { font-size: 12.5px; }
+  .gate-card form { margin-top: 20px; }
+  .gate-card label { margin: 14px 0 6px; }
+  .gate-foot { margin-top: 22px; }
   dialog { max-height: calc(100svh - 24px); border-radius: 22px; }
   .modal-heading { padding: 16px 14px 4px 18px; }
   .modal-icon { width: 36px; height: 36px; border-radius: 12px; }
