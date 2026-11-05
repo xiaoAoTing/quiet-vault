@@ -19,6 +19,11 @@ function applyTheme(theme: Theme) {
 const initialTheme = readTheme();
 applyTheme(initialTheme);
 const blankEntry = (): Entry => ({ id: crypto.randomUUID(), title: '', username: '', password: '', url: '', notes: '', categoryId: '', updatedAt: '' });
+// 备份文件名用设备本地时间，避免 UTC 造成的日期/时刻偏差。
+function localStamp(date = new Date()) {
+  const pad = (n: number) => String(n).padStart(2, '0');
+  return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}_${pad(date.getHours())}-${pad(date.getMinutes())}-${pad(date.getSeconds())}`;
+}
 function App() {
   const [stored, setStored] = useState<Envelope | null>(null);
   const [session, setSession] = useState<Session | null>(null);
@@ -136,7 +141,7 @@ function App() {
     const envelope = sessionRef.current?.envelope ?? stored;
     if (!envelope) return;
     const url = URL.createObjectURL(new Blob([JSON.stringify(envelope)], { type: 'application/json' }));
-    const a = document.createElement('a'); a.href = url; a.download = `quiet-vault-${new Date().toISOString().replaceAll(':','-')}.qvault`; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
+    const a = document.createElement('a'); a.href = url; a.download = `quiet-vault-${localStamp()}.qvault`; a.click(); setTimeout(() => URL.revokeObjectURL(url), 1000);
     setNotice('已请求下载密文备份，请确认文件已保存');
   }
   async function copy(value: string) { try { await navigator.clipboard.writeText(value); setNotice('已复制。使用后请清理剪贴板'); } catch { setError('无法访问剪贴板，请显示后手动复制'); } }
