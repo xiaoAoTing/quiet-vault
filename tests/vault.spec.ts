@@ -286,15 +286,19 @@ test('stores an optional note per entry and keeps it across reload', async ({pag
   await page.getByLabel('名称',{exact:true}).fill('备用邮箱');
   await page.getByLabel('账号',{exact:true}).fill('alice@example.com');
   await page.getByLabel('密码',{exact:true}).fill('secret-entry-password');
-  await page.getByLabel('备注（非必填）').fill('安全问题：第一只宠物');
+  await page.getByLabel('备注（非必填）').fill('安全问题：第一只宠物\n恢复码在保险箱');
   await page.getByRole('button',{name:'加密保存'}).click();
   await expect(page.getByRole('button',{name:'编辑 备用邮箱',exact:true})).toBeVisible();
+  // 列表完整展示备注：多行内容不被省略号截断
+  const note = page.locator('.entry-notes');
+  await expect(note).toHaveText(/安全问题：第一只宠物\s*恢复码在保险箱/);
+  expect(await note.evaluate(el => el.scrollWidth <= el.clientWidth + 1 && el.scrollHeight <= el.clientHeight + 1)).toBe(true);
   await page.getByRole('button',{name:'编辑 备用邮箱',exact:true}).click();
-  await expect(page.getByLabel('备注（非必填）')).toHaveValue('安全问题：第一只宠物');
+  await expect(page.getByLabel('备注（非必填）')).toHaveValue('安全问题：第一只宠物\n恢复码在保险箱');
   await page.getByRole('button',{name:'关闭弹窗'}).click();
   await page.reload();
   await page.getByRole('button',{name:'编辑 备用邮箱',exact:true}).click();
-  await expect(page.getByLabel('备注（非必填）')).toHaveValue('安全问题：第一只宠物');
+  await expect(page.getByLabel('备注（非必填）')).toHaveValue('安全问题：第一只宠物\n恢复码在保险箱');
   await page.getByRole('button',{name:'关闭弹窗'}).click();
   // 备注非必填：不填写也能保存
   await page.getByRole('button',{name:'新增密码',exact:true}).click();

@@ -464,6 +464,8 @@ a.brand:hover { color: var(--accent); }
 .entry-main:hover strong { color: var(--accent); }
 .entry-main span { color: var(--muted); font-size: 12.5px; line-height: 1.45; }
 .entry-main strong, .entry-main span { max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+/* Notes render in full: keep user line breaks, wrap long tokens, never clip. */
+.entry-main .entry-notes { margin-top: 2px; padding-left: 9px; border-left: 2px solid var(--accent-line); line-height: 1.55; white-space: pre-wrap; overflow-wrap: anywhere; overflow: visible; text-overflow: clip; }
 .entry-date { order: 2; flex-shrink: 0; color: var(--faint); font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace; font-size: 11px; letter-spacing: .01em; font-variant-numeric: tabular-nums; }
 .tag { order: 3; display: inline-flex; align-items: center; gap: 5px; min-height: 0; padding: 3px 10px; border-radius: 999px; color: var(--accent-muted); background: var(--accent-wash); font-size: 11px; line-height: 1.5; max-width: 130px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .tag > svg { flex-shrink: 0; }
