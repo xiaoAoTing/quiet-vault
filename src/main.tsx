@@ -3,6 +3,7 @@ import { createRoot } from 'react-dom/client';
 import { ShieldCheck, LockKeyhole, Plus, Search, Download, Upload, Folder, KeyRound, Pencil, Trash2, X, Eye, EyeOff, Copy, ArrowRight, Sun, Moon, Check, Shuffle } from './icons';
 import { CategoryIcon, categoryIconLabel, DEFAULT_CATEGORY_ICON, randomCategoryIcon, searchCategoryIcons } from './category-icons';
 import { createVault, openVault, decryptVault, parseEnvelope, seal, masterPasswordProblem, MAX_FILE_SIZE, type Vault, type Entry, type Category, type Envelope } from './vault';
+import { uniqueEntryNames, matchEntryNames } from './name-suggest';
 import { saveSessionKey, loadSessionKey, clearSessionKey } from './session';
 import './style.css';
 const STORAGE = 'quiet-vault.v1';
@@ -246,6 +247,7 @@ function App() {
   const vault = session?.vault;
   const selected = filter === '*' ? '所有密码' : filter === '' ? '未分类' : vault?.categories.find(c => c.id === filter)?.name ?? '所有密码';
   const entries = vault?.entries.filter(e => (filter === '*' || e.categoryId === filter) && [e.name,e.username,vault.categories.find(c=>c.id===e.categoryId)?.name ?? '未分类'].join(' ').toLocaleLowerCase().includes(query.toLocaleLowerCase())) ?? [];
+  const nameOptions = vault && editor ? uniqueEntryNames(vault.entries, editor.id) : [];
   return <>
     <input ref={fileRef} type="file" accept={isIOS ? undefined : '.json,.qvault,application/json'} hidden onChange={e => { void importFile(e.target.files?.[0]); e.target.value = ''; }}/>
     {restoring ? <main className="gate gate-restoring"><section className="gate-card"><div className="lock-emblem"><LockKeyhole size={30}/></div><p className="eyebrow">QUIET VAULT</p><h1>正在解锁…</h1><p className="muted">正在从此设备恢复加密会话。</p></section></main> : !session ? <main className="gate">
@@ -306,7 +308,7 @@ function App() {
     {editor && vault && <Modal error={error} title={vault.entries.some(e=>e.id===editor.id)?'编辑密码':'新增密码'} icon={<KeyRound size={18}/>} close={()=>setEditor(null)} disabled={busy}>
       {requestClose => (
       <form onSubmit={e=>{e.preventDefault();const next={...editor,username:editor.username.trim(),updatedAt:new Date().toISOString()};void save({...vault,entries:[...vault.entries.filter(x=>x.id!==next.id),next]},requestClose);}}>
-        <label>名称<input autoFocus autoComplete="off" maxLength={1000} value={editor.name} onChange={e=>setEditor({...editor,name:e.target.value})}/></label>
+        <NameCombobox value={editor.name} options={nameOptions} onChange={name=>setEditor({...editor,name})}/>
         <label>账号<input autoComplete="off" maxLength={1000} value={editor.username} onChange={e=>setEditor({...editor,username:e.target.value})}/></label>
         <label>密码<div className="password-field"><input id="entry-password" required type={revealed?'text':'password'} autoComplete="new-password" maxLength={4096} value={editor.password} onChange={e=>setEditor({...editor,password:e.target.value})}/><div className="password-tools"><button type="button" aria-label={revealed?'隐藏密码':'显示密码'} onClick={()=>setRevealed(!revealed)}>{revealed?<EyeOff size={18}/>:<Eye size={18}/>}</button><button type="button" aria-label="复制密码" onClick={()=>void copy(editor.password)}><Copy size={18}/></button></div></div></label>
         <div className="field-label" id="entry-category-label">分类</div>
@@ -342,6 +344,55 @@ function App() {
 function ThemeToggle({theme,onToggle}:{theme:Theme;onToggle:()=>void}) {
   const next = theme === 'dark' ? '亮色' : '暗色';
   return <button className="theme-toggle" type="button" onClick={onToggle} aria-label={`切换到${next}主题`} title={`切换到${next}主题`}>{theme === 'dark' ? <Sun size={16}/> : <Moon size={16}/>}<span>{next}</span></button>;
+}
+// 名称字段的自动补全：建议来自已有条目的名称，输入即过滤，支持方向键、回车和 Esc。
+function NameCombobox({value,options,onChange}:{value:string;options:string[];onChange:(name:string)=>void}) {
+  const [open, setOpen] = useState(false);
+  const [active, setActive] = useState(-1);
+  const comboRef = useRef<HTMLDivElement>(null);
+  const matches = matchEntryNames(options, value);
+  const visible = open && matches.length > 0;
+  useEffect(() => {
+    if (!open) return;
+    const outside = (e: PointerEvent) => { if (!comboRef.current?.contains(e.target as Node)) setOpen(false); };
+    document.addEventListener('pointerdown', outside);
+    return () => document.removeEventListener('pointerdown', outside);
+  }, [open]);
+  useEffect(() => { setActive(-1); }, [value]);
+  function choose(name: string) {
+    onChange(name); setOpen(false); setActive(-1);
+  }
+  function handleKeyDown(e: React.KeyboardEvent<HTMLInputElement>) {
+    if (e.key === 'Escape') {
+      if (!visible) return;
+      e.preventDefault(); e.stopPropagation();
+      setOpen(false); setActive(-1);
+      return;
+    }
+    if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+      if (!matches.length) return;
+      e.preventDefault();
+      setOpen(true);
+      setActive(current => {
+        if (!visible) return e.key === 'ArrowDown' ? 0 : matches.length - 1;
+        return e.key === 'ArrowDown' ? (current + 1) % matches.length : (current - 1 + matches.length) % matches.length;
+      });
+      return;
+    }
+    if (e.key === 'Enter' && visible && active >= 0 && active < matches.length) {
+      e.preventDefault();
+      choose(matches[active]);
+    }
+  }
+  return <div className="name-field">
+    <label htmlFor="entry-name">名称</label>
+    <div className="name-combo" ref={comboRef}>
+      <input id="entry-name" autoFocus autoComplete="off" maxLength={1000} value={value} role="combobox" aria-expanded={visible} aria-controls="entry-name-options" aria-autocomplete="list" aria-activedescendant={visible && active >= 0 ? `entry-name-option-${active}` : undefined} onChange={e=>{onChange(e.target.value);setOpen(true);}} onFocus={()=>setOpen(true)} onBlur={e=>{if(!comboRef.current?.contains(e.relatedTarget as Node))setOpen(false);}} onKeyDown={handleKeyDown}/>
+      {visible && <div className="name-suggest" id="entry-name-options" role="listbox" aria-label="已有名称">
+        {matches.map((name,index)=><button type="button" role="option" tabIndex={-1} id={`entry-name-option-${index}`} aria-selected={index===active} className={index===active?'name-option active':'name-option'} key={name} onMouseDown={e=>e.preventDefault()} onMouseEnter={()=>setActive(index)} onClick={()=>choose(name)}><span>{name}</span></button>)}
+      </div>}
+    </div>
+  </div>;
 }
 function CategoryMenu({anchor,current,categories,onPick,onCreate,onClose}:{anchor:HTMLElement;current?:string;categories:Category[];onPick:(id:string)=>void;onCreate:(name:string)=>void;onClose:()=>void}) {
   const ref = useRef<HTMLDivElement>(null);

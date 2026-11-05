@@ -224,6 +224,58 @@ test('accepts .json backups and does not restrict the picker on iOS', async ({pa
   if (testInfo.project.name === 'mobile') expect(accept).toBeNull();
   else expect(accept).toContain('.json');
 });
+test('suggests existing names in the name field and supports keyboard and mouse selection', async ({page}) => {
+  await page.goto('/');
+  await page.getByLabel('主密码',{exact:true}).fill(master);
+  await page.getByLabel('再次输入主密码').fill(master);
+  await page.getByRole('button',{name:'创建保险库'}).click();
+  await expect(page.getByRole('button',{name:'新增密码',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'新增密码',exact:true}).click();
+  await page.getByLabel('名称',{exact:true}).fill('AppleID');
+  await page.getByLabel('账号',{exact:true}).fill('first@example.com');
+  await page.getByLabel('密码',{exact:true}).fill('secret-entry-password');
+  await page.getByRole('button',{name:'加密保存'}).click();
+  await expect(page.getByRole('button',{name:'编辑 AppleID',exact:true})).toBeVisible();
+
+  await page.getByRole('button',{name:'新增密码',exact:true}).click();
+  const name = page.getByLabel('名称',{exact:true});
+  const list = page.getByRole('listbox',{name:'已有名称'});
+  await name.fill('app');
+  await expect(list).toBeVisible();
+  await expect(list.getByRole('option')).toHaveText(['AppleID']);
+  // 账号和分类不参与名称建议
+  await name.fill('first@');
+  await expect(list).toHaveCount(0);
+  await name.fill('app');
+  // 方向键高亮后回车选中，且不会触发表单提交
+  await name.press('ArrowDown');
+  await expect(list.getByRole('option',{name:'AppleID'})).toHaveAttribute('aria-selected','true');
+  await name.press('Enter');
+  await expect(name).toHaveValue('AppleID');
+  await expect(list).toHaveCount(0);
+  await expect(page.getByRole('dialog')).toBeVisible();
+  // 与输入完全相同的名称不再重复推荐
+  await name.fill('');
+  await name.fill('AppleID');
+  await expect(list).toHaveCount(0);
+  // Esc 只收起建议，不关闭弹窗
+  await name.fill('App');
+  await expect(list).toBeVisible();
+  await name.press('Escape');
+  await expect(list).toHaveCount(0);
+  await expect(page.getByRole('dialog')).toBeVisible();
+  // Tab 离开名称字段时同样收起建议
+  await name.fill('app');
+  await expect(list).toBeVisible();
+  await name.press('Tab');
+  await expect(list).toHaveCount(0);
+  // 鼠标点选建议
+  await name.fill('app');
+  await list.getByRole('option',{name:'AppleID'}).click();
+  await expect(name).toHaveValue('AppleID');
+  await page.getByRole('button',{name:'关闭弹窗'}).click();
+  await expect(page.locator('dialog')).toHaveCount(0);
+});
 test('requires a strong master password when creating a vault', async ({page}) => {
   await page.goto('/');
   const password = page.getByLabel('主密码',{exact:true});

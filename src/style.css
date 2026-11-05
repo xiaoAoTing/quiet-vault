@@ -565,6 +565,32 @@ dialog.closing .modal-heading, dialog.closing .modal-body { animation: modal-con
 .password-tools { position: absolute; top: 50%; right: 7px; display: flex; gap: 2px; transform: translateY(-50%); }
 .password-tools button { width: 38px; min-height: 38px; padding: 0; border-radius: 50%; color: var(--muted); background: transparent; }
 .password-tools button:hover { color: var(--accent); background: var(--chip); }
+.name-field { margin: 20px 0 8px; }
+.name-field > label { margin: 0; }
+.name-combo { position: relative; margin-top: 8px; }
+.name-combo input { margin-top: 0; }
+.name-suggest {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 0;
+  right: 0;
+  z-index: 6;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  max-height: min(232px, 42svh);
+  padding: 6px;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border: 1px solid var(--glass-border);
+  border-radius: 16px;
+  background: var(--menu-bg);
+  box-shadow: inset 0 1px 0 var(--glass-highlight), var(--shadow-menu);
+  animation: pop 160ms cubic-bezier(.22, 1, .36, 1) both;
+}
+.name-option { display: flex; justify-content: flex-start; min-height: 40px; padding: 8px 11px; border-radius: 11px; color: var(--text); font-size: 13px; font-weight: 400; text-align: left; }
+.name-option span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.name-option:hover, .name-option.active { color: var(--accent); background: var(--accent-wash-strong); }
 .modal-actions { display: flex; align-items: center; justify-content: space-between; gap: 12px; margin-top: 26px; }
 .modal-actions .primary { min-height: 44px; padding-inline: 22px; }
 .modal-actions > .primary { margin-left: auto; }
@@ -725,6 +751,7 @@ dialog.closing .modal-heading, dialog.closing .modal-body { animation: modal-con
   .modal-heading { padding: 16px 14px 4px 18px; }
   .modal-icon { width: 36px; height: 36px; border-radius: 12px; }
   .modal-body { padding: 6px 18px 22px; }
+  .name-option { min-height: 42px; font-size: 14px; }
   .modal-actions { margin-top: 22px; }
   .toast { bottom: 18px; padding-left: 18px; font-size: 12.5px; }
   .toast.error { bottom: 86px; }
