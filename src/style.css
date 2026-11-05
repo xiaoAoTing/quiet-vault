@@ -366,9 +366,11 @@ a.brand:hover { color: var(--accent); }
 .nav-count { flex-shrink: 0; margin-left: auto; color: var(--faint); font-size: 11px; font-weight: 400; font-variant-numeric: tabular-nums; }
 .nav-count::before { content: '('; }
 .nav-count::after { content: ')'; }
-.sidebar-manage { display: flex; justify-content: flex-start; gap: 9px; min-height: 40px; margin-top: 4px; padding: 8px 12px; border-radius: 12px; color: var(--muted); font-size: 13px; box-shadow: inset 0 1px 0 var(--card-border); }
-.sidebar-manage:hover { color: var(--accent); background: var(--chip); }
-.sidebar-manage svg { width: 15px; height: 15px; }
+.sidebar-tools { display: flex; flex-direction: column; gap: 2px; margin-top: 4px; padding-top: 8px; box-shadow: inset 0 1px 0 var(--card-border); }
+.sidebar-link { display: flex; justify-content: flex-start; gap: 9px; min-height: 40px; padding: 8px 12px; border-radius: 12px; color: var(--muted); font-size: 13px; text-align: left; }
+.sidebar-link:hover { color: var(--accent); background: var(--chip); }
+.sidebar-link.active { color: var(--accent); background: var(--accent-wash-strong); font-weight: 600; }
+.sidebar-link svg { width: 15px; height: 15px; }
 .category-menu { position: fixed; z-index: 55; display: flex; flex-direction: column; width: min(288px, calc(100vw - 24px)); max-height: min(380px, calc(100svh - 40px)); padding: 8px; border: 1px solid var(--glass-border); border-radius: 18px; background: var(--menu-bg); box-shadow: inset 0 1px 0 var(--glass-highlight), var(--shadow-menu); animation: pop 180ms cubic-bezier(.22, 1, .36, 1) both; }
 .category-menu-search { min-height: 40px; padding: 8px 13px; font-size: 13px; border-radius: 12px; }
 .category-menu-search:focus { box-shadow: 0 0 0 3px var(--accent-ring); }
@@ -504,24 +506,30 @@ a.brand:hover { color: var(--accent); }
 .empty button { padding: 8px 16px; font-size: 13px; color: var(--accent); background: var(--accent-wash); }
 .empty button:hover { background: var(--accent-wash-strong); }
 
-.backup-note {
-  display: flex;
-  align-items: center;
-  gap: 14px;
-  margin-top: 26px;
-  padding: 20px 20px 20px 18px;
-  border: 1px solid var(--card-border);
-  border-radius: 22px;
-  background: linear-gradient(135deg, var(--accent-wash-strong), transparent 46%), var(--card);
-  box-shadow: inset 0 1px 0 var(--glass-highlight), var(--shadow-card);
-  animation: rise 620ms cubic-bezier(.22, 1, .36, 1) 240ms both;
-}
-.backup-note > svg { width: 20px; height: 20px; padding: 9px; box-sizing: content-box; border-radius: 13px; color: var(--accent); background: var(--accent-wash); }
-.backup-note strong { display: block; color: var(--text-strong); font-size: 14px; font-weight: 600; }
-.backup-note p { margin-top: 4px; color: var(--muted); font-size: 12px; line-height: 1.75; }
-.backup-note > div { min-width: 0; }
-footer { display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 10px; margin-top: 30px; padding: 0 6px; color: var(--faint); font-size: 11.5px; animation: rise 640ms cubic-bezier(.22, 1, .36, 1) 280ms both; }
-footer span { display: flex; align-items: center; gap: 7px; }
+.about { display: flex; flex-direction: column; gap: 12px; padding-bottom: 8px; }
+.about-head { margin: 0 4px 8px; animation: rise 520ms cubic-bezier(.22, 1, .36, 1) 40ms both; }
+.about-head h1 { margin-top: 2px; font-size: 26px; }
+.about-lede { max-width: 62ch; margin-top: 10px; color: var(--muted); font-size: 13.5px; line-height: 1.85; }
+.about-card { padding: 20px; border: 1px solid var(--card-border); border-radius: 22px; background: var(--card); box-shadow: inset 0 1px 0 var(--glass-highlight), var(--shadow-card); animation: rise 560ms cubic-bezier(.22, 1, .36, 1) 100ms both; }
+.about-card:nth-of-type(2) { animation-delay: 150ms; }
+.about-card:nth-of-type(3) { animation-delay: 200ms; }
+.about-card h2 { font-size: 15.5px; }
+.about-card > p { margin-top: 10px; color: var(--muted); font-size: 13px; line-height: 1.8; }
+.about-card-head { display: flex; align-items: flex-start; gap: 13px; }
+.about-icon { display: grid; place-items: center; flex-shrink: 0; width: 40px; height: 40px; border-radius: 13px; color: var(--accent); background: var(--accent-wash-strong); }
+.about-icon svg { width: 20px; height: 20px; }
+.about-card-head p { margin-top: 3px; color: var(--muted); font-size: 12.5px; line-height: 1.7; }
+.about-warn { padding: 11px 14px; border-radius: 14px; background: var(--accent-wash); }
+.about-steps { display: flex; flex-direction: column; gap: 14px; margin-top: 14px; padding: 0; list-style: none; counter-reset: about-step; }
+.about-steps li { display: grid; grid-template-columns: 28px minmax(0, 1fr); gap: 11px; align-items: start; }
+.about-steps li::before { counter-increment: about-step; content: counter(about-step); display: grid; place-items: center; width: 28px; height: 28px; border-radius: 10px; color: var(--accent); background: var(--accent-wash); font-size: 12px; font-weight: 600; }
+.about-steps strong { display: block; color: var(--text-strong); font-size: 13.5px; font-weight: 600; line-height: 1.7; }
+.about-steps span { display: block; margin-top: 2px; color: var(--muted); font-size: 12.5px; line-height: 1.75; }
+.about-list { display: flex; flex-direction: column; gap: 11px; margin-top: 14px; padding: 0; list-style: none; }
+.about-list li { display: flex; align-items: flex-start; gap: 10px; color: var(--muted); font-size: 12.5px; line-height: 1.75; }
+.about-list svg { flex-shrink: 0; width: 15px; height: 15px; margin-top: 3px; color: var(--accent-muted); }
+.about-list strong { color: var(--text-strong); font-weight: 600; }
+.about-foot { margin: 4px 4px 0; color: var(--faint); font-size: 11.5px; line-height: 1.7; animation: rise 620ms cubic-bezier(.22, 1, .36, 1) 240ms both; }
 
 dialog {
   width: calc(100% - 32px);
@@ -669,13 +677,14 @@ dialog.closing .modal-heading, dialog.closing .modal-body { animation: modal-con
 
 @media (max-width: 900px) {
   .app-body { display: block; padding-top: 16px; }
-  .sidebar { position: static; flex-direction: row; align-items: center; gap: 6px; max-height: none; padding: 6px; border-radius: 18px; }
+  .sidebar { position: static; flex-wrap: wrap; flex-direction: row; align-items: center; gap: 6px; max-height: none; padding: 6px; border-radius: 18px; }
   .sidebar-title { display: none; }
-  .category-nav { flex: 1; flex-direction: row; gap: 4px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
+  .category-nav { flex: 1 0 100%; flex-direction: row; gap: 4px; overflow-x: auto; overflow-y: hidden; scrollbar-width: none; }
   .category-nav::-webkit-scrollbar { display: none; }
   .nav-item { width: auto; flex-shrink: 0; min-height: 36px; padding: 6px 12px; border-radius: 999px; }
   .nav-count { margin-left: 0; }
-  .sidebar-manage { flex-shrink: 0; min-height: 36px; margin-top: 0; padding: 6px 12px; border-radius: 999px; background: var(--chip); box-shadow: none; }
+  .sidebar-tools { flex: 1 0 100%; flex-direction: row; gap: 4px; margin-top: 0; padding-top: 0; box-shadow: none; }
+  .sidebar-link { flex: 1; justify-content: center; flex-shrink: 0; min-height: 36px; padding: 6px 12px; border-radius: 999px; background: var(--chip); }
   .content { padding-top: 20px; }
 }
 
@@ -685,8 +694,6 @@ dialog.closing .modal-heading, dialog.closing .modal-body { animation: modal-con
   .workspace-label { display: none; }
   .entry { gap: 12px; }
   .entry-date { display: none; }
-  .backup-note { flex-wrap: wrap; }
-  .backup-note > div { flex: 1; }
 }
 
 @media (max-width: 540px) {
@@ -700,7 +707,7 @@ dialog.closing .modal-heading, dialog.closing .modal-body { animation: modal-con
   .header-actions .theme-toggle { min-height: 38px; padding-inline: 8px; }
   .theme-toggle span { display: none; }
   .sidebar { padding: 5px; border-radius: 16px; }
-  .nav-item, .sidebar-manage { min-height: 34px; padding: 5px 10px; font-size: 12px; }
+  .nav-item, .sidebar-link { min-height: 34px; padding: 5px 10px; font-size: 12px; }
   .content { padding-top: 18px; }
   .breadcrumb { font-size: 11px; }
   .list-head { gap: 12px; margin-bottom: 16px; }
@@ -731,11 +738,15 @@ dialog.closing .modal-heading, dialog.closing .modal-body { animation: modal-con
   .entry .icon-button { width: 36px; min-width: 36px; min-height: 36px; }
   .empty { padding: 48px 16px 44px; }
   .empty p { font-size: 13px; }
-  .backup-note { margin-top: 22px; padding: 16px; gap: 12px; display: grid; grid-template-columns: auto 1fr; align-items: start; }
-  .backup-note > svg { grid-column: 1; grid-row: 1; }
-  .backup-note > div { grid-column: 2; grid-row: 1; }
-  .backup-note p { font-size: 12px; }
-  footer { margin-top: 26px; font-size: 11px; }
+  .about { gap: 10px; }
+  .about-head h1 { font-size: 23px; }
+  .about-lede { font-size: 13px; }
+  .about-card { padding: 16px; border-radius: 18px; }
+  .about-card-head { gap: 11px; }
+  .about-icon { width: 36px; height: 36px; border-radius: 12px; }
+  .about-warn { padding: 10px 12px; }
+  .about-steps li { grid-template-columns: 24px minmax(0, 1fr); gap: 9px; }
+  .about-steps li::before { width: 24px; height: 24px; border-radius: 8px; font-size: 11px; }
   .gate { padding: 18px 18px 26px; }
   .gate-top { margin-bottom: 22px; gap: 10px; }
   .gate-brand { font-size: 15.5px; }

@@ -328,3 +328,24 @@ test('requires a strong master password when creating a vault', async ({page}) =
   await create.click();
   await expect(page.getByRole('button',{name:'新增密码',exact:true})).toBeVisible();
 });
+test('moves the local-storage guidance onto a dedicated about page', async ({page}) => {
+  await page.goto('/');
+  await page.getByLabel('主密码',{exact:true}).fill(master);
+  await page.getByLabel('再次输入主密码').fill(master);
+  await page.getByRole('button',{name:'创建保险库'}).click();
+  await expect(page.getByRole('button',{name:'新增密码',exact:true})).toBeVisible();
+  // 列表页不再展示备份提示和页脚
+  await expect(page.getByText('本地保存，安心掌控')).toHaveCount(0);
+  await expect(page.getByText('端到本地加密 · 无后台服务')).toHaveCount(0);
+  await page.getByRole('button',{name:'简介',exact:true}).click();
+  await expect(page.getByRole('heading',{name:'简介',exact:true})).toBeVisible();
+  await expect(page.getByRole('heading',{name:'本地保存，安心掌控'})).toBeVisible();
+  await expect(page.getByText('端到本地加密 · 无后台服务')).toBeVisible();
+  await expect(page.getByRole('heading',{name:'怎么用'})).toBeVisible();
+  await expect(page.getByRole('button',{name:'新增密码',exact:true})).toHaveCount(0);
+  await expect(page.getByLabel('搜索密码')).toHaveCount(0);
+  await openSidebar(page);
+  await page.getByRole('button',{name:/^所有密码/}).click();
+  await expect(page.getByRole('button',{name:'新增密码',exact:true})).toBeVisible();
+  await expect(page.getByRole('button',{name:'简介',exact:true})).not.toHaveAttribute('aria-current','page');
+});

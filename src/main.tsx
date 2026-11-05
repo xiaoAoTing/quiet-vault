@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { ShieldCheck, LockKeyhole, Plus, Search, Download, Upload, Folder, KeyRound, Pencil, Trash2, X, Eye, EyeOff, Copy, ArrowRight, Sun, Moon, Check, Shuffle } from './icons';
+import { ShieldCheck, LockKeyhole, Plus, Search, Download, Upload, Folder, KeyRound, Pencil, Trash2, X, Eye, EyeOff, Copy, ArrowRight, Sun, Moon, Check, Shuffle, Info } from './icons';
 import { CategoryIcon, categoryIconLabel, DEFAULT_CATEGORY_ICON, randomCategoryIcon, searchCategoryIcons } from './category-icons';
 import { createVault, openVault, decryptVault, parseEnvelope, seal, masterPasswordProblem, MAX_FILE_SIZE, type Vault, type Entry, type Category, type Envelope } from './vault';
 import { uniqueEntryNames, matchEntryNames } from './name-suggest';
@@ -46,6 +46,7 @@ function App() {
   const [error, setError] = useState('');
   const [notice, setNotice] = useState('');
   const [filter, setFilter] = useState('*');
+  const [view, setView] = useState<'vault' | 'about'>('vault');
   const [query, setQuery] = useState('');
   const [categoryQuery, setCategoryQuery] = useState('');
   const [editor, setEditor] = useState<Entry | null>(null);
@@ -69,11 +70,14 @@ function App() {
   function toggleTheme() { setTheme(value => value === 'dark' ? 'light' : 'dark'); }
   function clearSession() {
     generation.current++;
-    assign(null); setEditor(null); setCategoriesOpen(false); setPassword(''); setConfirmPassword(''); setRevealed(false); setQuery(''); setCategoryQuery(''); setCategoryName(''); setCategoryId(''); setCategoryIcon(DEFAULT_CATEGORY_ICON); setPending(null); setFilter('*');
+    assign(null); setEditor(null); setCategoriesOpen(false); setPassword(''); setConfirmPassword(''); setRevealed(false); setQuery(''); setCategoryQuery(''); setCategoryName(''); setCategoryId(''); setCategoryIcon(DEFAULT_CATEGORY_ICON); setPending(null); setFilter('*'); setView('vault');
     setMenu(null); setSelecting(false); setSelectedIds(new Set()); setNewCategory('');
   }
   function changeFilter(value: string) {
-    setFilter(value); setMenu(null); setSelecting(false); setSelectedIds(new Set());
+    setFilter(value); setView('vault'); setMenu(null); setSelecting(false); setSelectedIds(new Set());
+  }
+  function openAbout() {
+    setView('about'); setMenu(null); setSelecting(false); setSelectedIds(new Set());
   }
   // Locking is deliberate: mark it synchronously, then drop the persisted key.
   function lock() {
@@ -267,13 +271,17 @@ function App() {
       <aside className="sidebar" aria-label="分类导航">
         <p className="sidebar-title">分类</p>
         <nav className="category-nav" aria-label="分类">
-          <button type="button" className={filter==='*'?'nav-item active':'nav-item'} aria-current={filter==='*'?'page':undefined} onClick={()=>changeFilter('*')}><KeyRound size={16}/><span className="nav-name">所有密码</span><span className="nav-count">{vault!.entries.length}</span></button>
-          {vault!.categories.map(c=><button type="button" className={filter===c.id?'nav-item active':'nav-item'} aria-current={filter===c.id?'page':undefined} key={c.id} onClick={()=>changeFilter(c.id)}><CategoryIcon icon={c.icon} size={16}/><span className="nav-name">{c.name}</span><span className="nav-count">{vault!.entries.filter(e=>e.categoryId===c.id).length}</span></button>)}
-          <button type="button" className={filter===''?'nav-item active':'nav-item'} aria-current={filter===''?'page':undefined} onClick={()=>changeFilter('')}><Folder size={16}/><span className="nav-name">未分类</span><span className="nav-count">{vault!.entries.filter(e=>!e.categoryId).length}</span></button>
+          <button type="button" className={filter==='*'&&view==='vault'?'nav-item active':'nav-item'} aria-current={filter==='*'&&view==='vault'?'page':undefined} onClick={()=>changeFilter('*')}><KeyRound size={16}/><span className="nav-name">所有密码</span><span className="nav-count">{vault!.entries.length}</span></button>
+          {vault!.categories.map(c=><button type="button" className={filter===c.id&&view==='vault'?'nav-item active':'nav-item'} aria-current={filter===c.id&&view==='vault'?'page':undefined} key={c.id} onClick={()=>changeFilter(c.id)}><CategoryIcon icon={c.icon} size={16}/><span className="nav-name">{c.name}</span><span className="nav-count">{vault!.entries.filter(e=>e.categoryId===c.id).length}</span></button>)}
+          <button type="button" className={filter===''&&view==='vault'?'nav-item active':'nav-item'} aria-current={filter===''&&view==='vault'?'page':undefined} onClick={()=>changeFilter('')}><Folder size={16}/><span className="nav-name">未分类</span><span className="nav-count">{vault!.entries.filter(e=>!e.categoryId).length}</span></button>
         </nav>
-        <button type="button" className="sidebar-manage" onClick={()=>setCategoriesOpen(true)}><Pencil size={15}/>管理分类</button>
+        <div className="sidebar-tools">
+          <button type="button" className={view==='about'?'sidebar-link active':'sidebar-link'} aria-current={view==='about'?'page':undefined} onClick={openAbout}><Info size={15}/>简介</button>
+          <button type="button" className="sidebar-link" onClick={()=>setCategoriesOpen(true)}><Pencil size={15}/>管理分类</button>
+        </div>
       </aside>
-      <main className="workspace"><div className="content"><div className="list-head"><p className="breadcrumb">个人保险库 <span>/</span> {selected}</p><button className="primary" disabled={busy} onClick={()=>{setEditor({...blankEntry(),categoryId:filter==='*'?'':filter});setRevealed(false);}}><Plus size={18}/>新增密码</button></div>
+      <main className="workspace"><div className="content"><div className="list-head"><p className="breadcrumb">个人保险库 <span>/</span> {view === 'about' ? '简介' : selected}</p>{view === 'vault' && <button className="primary" disabled={busy} onClick={()=>{setEditor({...blankEntry(),categoryId:filter==='*'?'':filter});setRevealed(false);}}><Plus size={18}/>新增密码</button>}</div>
+          {view === 'about' ? <AboutPage/> : <>
           <div className="toolbar"><div className="search"><Search size={19}/><input aria-label="搜索密码" placeholder="搜索名称、账号或分类…" value={query} onChange={e=>setQuery(e.target.value)}/></div><div className="file-actions"><button disabled={busy} onClick={()=>fileRef.current?.click()}><Upload size={15}/>导入</button><button disabled={busy} onClick={exportFile}><Download size={15}/>导出备份</button></div></div>
           {busy && <div className="save-status"><span/><span>正在加密保存…</span></div>}
           {filter === '' && entries.length > 0 && !selecting && <div className="hint-bar">
@@ -293,8 +301,7 @@ function App() {
               {!selecting && <><button className="icon-button" aria-label={`复制 ${entryLabel(e)} 的名称、账号和密码`} onClick={()=>void copy(entryClipboard(e))}><Copy size={18}/></button><button className="icon-button" aria-label={`编辑 ${entryLabel(e)}`} onClick={()=>{setEditor({...e});setRevealed(false);}}><Pencil size={17}/></button></>}
             </article>;
           }) : <div className="empty"><div className="empty-icon"><KeyRound size={30}/></div><h2>{query ? '没有匹配的密码' : filter === '' ? '没有未分类的密码' : '从第一个密码开始'}</h2><p>{query ? '试试其他关键词，或选择其他分类。' : filter === '' ? '所有密码都已归类。' : '添加登录信息，或导入已有的加密备份。'}</p>{!query && filter !== '' && <button onClick={()=>{setEditor({...blankEntry(),categoryId:filter==='*'?'':filter});setRevealed(false);}}><Plus size={17}/>添加密码</button>}</div>}</section>
-          <div className="backup-note"><ShieldCheck size={22}/><div><strong>本地保存，安心掌控</strong><p>浏览器数据可能被清理。定期导出加密备份，在其他设备导入即可继续使用。</p></div></div>
-          <footer><span><LockKeyhole size={13}/>端到本地加密 · 无后台服务</span></footer>
+          </>}
         </div>
       </main>
       </div>
@@ -341,6 +348,39 @@ function App() {
     {error && <div className="toast error" role="alert"><span>{error}</span><button aria-label="关闭错误" onClick={()=>setError('')}><X size={18}/></button></div>}
     {notice && <div className="toast" role="status">{notice}</div>}
   </>;
+}
+function AboutPage() {
+  return <div className="about">
+    <header className="about-head">
+      <p className="eyebrow">ABOUT QUIET VAULT</p>
+      <h1>简介</h1>
+      <p className="about-lede">Quiet Vault 是一个只保存在当前浏览器里的密码保险库。没有账号、没有云端、没有后台服务——主密码和密码数据都不会离开这台设备。</p>
+    </header>
+    <section className="about-card">
+      <div className="about-card-head"><span className="about-icon"><ShieldCheck/></span><div><h2>本地保存，安心掌控</h2><p>条目加密后存放在浏览器的本地存储中，只在输入主密码后于本机解密。</p></div></div>
+      <p className="about-warn">浏览器数据可能被清理、覆盖或随设备一起丢失。请定期导出加密备份，在其他设备导入即可继续使用。</p>
+    </section>
+    <section className="about-card">
+      <h2>怎么用</h2>
+      <ol className="about-steps">
+        <li><div><strong>新增与编辑</strong><span>点击「新增密码」填写名称、账号和密码，可同时选择分类；点条目或铅笔图标即可修改，删除也在编辑窗口里。</span></div></li>
+        <li><div><strong>搜索与分类</strong><span>顶部搜索框支持名称、账号和分类；点条目右侧的分类标签可快速归类，「未分类」中还能勾选多条批量归类。</span></div></li>
+        <li><div><strong>复制信息</strong><span>点复制按钮会一次性复制名称、账号和密码。粘贴使用后，请记得清理剪贴板。</span></div></li>
+        <li><div><strong>备份与迁移</strong><span>「导出备份」会下载一份加密文件；换设备或浏览器时用「导入」选择该文件，再输入主密码即可恢复。</span></div></li>
+        <li><div><strong>锁定与解锁</strong><span>只有点击「锁定」才会退出。刷新或重新打开页面会自动恢复本机会话；锁定后必须重新输入主密码。</span></div></li>
+      </ol>
+    </section>
+    <section className="about-card">
+      <h2>安全与隐私</h2>
+      <ul className="about-list">
+        <li><LockKeyhole/><span><strong>端到本地加密 · 无后台服务</strong>：加解密全部在浏览器内完成，数据不会上传到任何服务器。</span></li>
+        <li><ShieldCheck/><span><strong>Argon2id + AES-256-GCM</strong>：主密码经 Argon2id 派生密钥，条目使用 AES-256-GCM 加密后再保存。</span></li>
+        <li><Upload/><span><strong>备份仍是密文</strong>：导出的文件需要主密码才能打开，可以放心保存到自己的网盘或移动硬盘。</span></li>
+        <li><KeyRound/><span><strong>主密码无法找回</strong>：主密码不会被保存，也没有重置入口，请务必牢记。</span></li>
+      </ul>
+    </section>
+    <p className="about-foot">浏览器存储不是备份。定期导出加密文件，是保护密码最稳妥的方式。</p>
+  </div>;
 }
 function ThemeToggle({theme,onToggle}:{theme:Theme;onToggle:()=>void}) {
   const next = theme === 'dark' ? '亮色' : '暗色';
