@@ -181,13 +181,13 @@ h2 { color: var(--heading); font-size: 18px; font-weight: 600; }
 .theme-toggle:hover { color: var(--accent); }
 .theme-toggle svg { width: 16px; height: 16px; }
 .app-shell { max-width: 900px; min-height: 100svh; margin: auto; padding: 64px 36px 30px; }
-aside { padding: 0; }
-.brand { width: fit-content; margin-bottom: 12px; }
+.app-header { display: flex; align-items: flex-start; justify-content: space-between; gap: 16px; }
+.brand-block { min-width: 0; }
+.brand { width: fit-content; margin-bottom: 10px; }
 .workspace-label { display: flex; align-items: center; gap: 12px; margin-left: 36px; color: var(--muted); font-size: 12px; }
 .workspace-label span { color: var(--accent); font-size: 11px; letter-spacing: 1px; border: 1px solid var(--accent-line); border-radius: 2px; padding: 0 5px; }
 .workspace { min-width: 0; }
-header { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 16px; }
-.breadcrumb { font-size: 12px; color: var(--faint); }
+.breadcrumb { margin-bottom: 22px; font-size: 12px; color: var(--faint); }
 .breadcrumb span { color: var(--faint); opacity: .7; padding: 0 9px; }
 .header-actions { display: flex; align-items: center; gap: 6px; }
 .header-actions > button, .switcher-trigger { border: 0; font-size: 13px; color: var(--muted); padding: 8px 10px; }
@@ -318,8 +318,8 @@ dialog.closing .modal-heading, dialog.closing .modal-body { animation: modal-con
   input, textarea, select { font-size: 16px; }
   .app-shell { padding: 30px 20px 24px; }
   .brand, .gate-brand { font-size: 22px; }
-  header { margin-top: 10px; }
-  .breadcrumb { font-size: 11px; }
+  .app-header { gap: 8px; }
+  .breadcrumb { margin-bottom: 18px; font-size: 11px; }
   .breadcrumb span { padding: 0 5px; }
   .header-actions { gap: 2px; }
   .header-actions > button, .switcher-trigger { font-size: 12px; padding: 6px; }
