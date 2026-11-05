@@ -63,7 +63,7 @@ function App() {
   const [restoring, setRestoring] = useState(true);
   const [theme, setTheme] = useState<Theme>(initialTheme);
   const fileRef = useRef<HTMLInputElement>(null);
-  const entryFormRef = useRef<HTMLFormElement>(null);
+  const entrySaveRef = useRef<(() => void) | null>(null);
   const version = useRef<string | null>(null);
   const generation = useRef(0);
   function assign(value: Session | null) { sessionRef.current = value; setSession(value); }
@@ -153,14 +153,15 @@ function App() {
   useEffect(() => {
     const shortcut = (e: KeyboardEvent) => {
       if (!(e.metaKey || e.ctrlKey) || e.key.toLocaleLowerCase() !== 's') return;
-      const form = entryFormRef.current;
-      if (!form) return;
+      const submit = entrySaveRef.current;
+      if (!submit) return;
       e.preventDefault();
-      if (!busyRef.current) form.requestSubmit();
+      if (!busyRef.current) submit();
     };
     document.addEventListener('keydown', shortcut);
     return () => document.removeEventListener('keydown', shortcut);
   }, []);
+  useEffect(() => { if (!editor) entrySaveRef.current = null; }, [editor]);
   async function run(task: (token: number) => Promise<void>) {
     if (busyRef.current) return;
     busyRef.current = true; setBusy(true); setError('');
@@ -324,12 +325,19 @@ function App() {
         <button type="button" onClick={()=>{setSelecting(false);setSelectedIds(new Set());setMenu(null);}}>取消</button>
       </div>}
     </div>}
-    {editor && vault && <Modal error={error} title={vault.entries.some(e=>e.id===editor.id)?'编辑密码':'新增密码'} icon={<KeyRound size={18}/>} close={()=>setEditor(null)} disabled={busy}>
-      {requestClose => (
-      <form ref={entryFormRef} onSubmit={e=>{e.preventDefault();const next={...editor,username:editor.username.trim(),notes:editor.notes?.trim() || undefined,updatedAt:new Date().toISOString()};void save({...vault,entries:[...vault.entries.filter(x=>x.id!==next.id),next]},requestClose);}}>
+    {editor && vault && <Modal error={error} title={vault.entries.some(e=>e.id===editor.id)?'编辑密码':'新增密码'} icon={<KeyRound size={18}/>} close={()=>{entrySaveRef.current=null;setEditor(null);}} disabled={busy}>
+      {requestClose => {
+      const submit = () => {
+        if (!editor.password) { setError('请填写密码'); return; }
+        const next={...editor,username:editor.username.trim(),notes:editor.notes?.trim() || undefined,updatedAt:new Date().toISOString()};
+        void save({...vault,entries:[...vault.entries.filter(x=>x.id!==next.id),next]},requestClose);
+      };
+      entrySaveRef.current = submit;
+      // 不使用原生 form 提交：Chrome 会把含密码字段的表单当作登录表单并弹出「要保存密码吗」。
+      return <div>
         <NameCombobox value={editor.name} options={nameOptions} onChange={name=>setEditor({...editor,name})}/>
         <label>账号<input autoComplete="off" maxLength={1000} value={editor.username} onChange={e=>setEditor({...editor,username:e.target.value})}/></label>
-        <label>密码<div className="password-field"><input id="entry-password" required type={revealed?'text':'password'} autoComplete="new-password" maxLength={4096} value={editor.password} onChange={e=>setEditor({...editor,password:e.target.value})}/><div className="password-tools"><button type="button" aria-label={revealed?'隐藏密码':'显示密码'} onClick={()=>setRevealed(!revealed)}>{revealed?<EyeOff size={18}/>:<Eye size={18}/>}</button><button type="button" aria-label="复制密码" onClick={()=>void copy(editor.password)}><Copy size={18}/></button></div></div></label>
+        <label>密码<div className="password-field"><input id="entry-password" type={revealed?'text':'password'} autoComplete="new-password" maxLength={4096} value={editor.password} onChange={e=>setEditor({...editor,password:e.target.value})}/><div className="password-tools"><button type="button" aria-label={revealed?'隐藏密码':'显示密码'} onClick={()=>setRevealed(!revealed)}>{revealed?<EyeOff size={18}/>:<Eye size={18}/>}</button><button type="button" aria-label="复制密码" onClick={()=>void copy(editor.password)}><Copy size={18}/></button></div></div></label>
         <label>备注（非必填）<textarea rows={3} maxLength={2000} placeholder="添加备注，例如安全问题、恢复方式…" value={editor.notes ?? ''} onChange={e=>setEditor({...editor,notes:e.target.value})}/></label>
         <div className="field-label" id="entry-category-label">分类</div>
         <div className="category-field" role="group" aria-labelledby="entry-category-label">
@@ -343,9 +351,9 @@ function App() {
           if (!name) return;
           void createCategoryInline(name, id => { setEditor(current => current ? {...current, categoryId: id} : current); setNewCategory(''); });
         }}/></div>
-        <div className="modal-actions">{vault.entries.some(e=>e.id===editor.id) && <button className="danger" type="button" disabled={busy} onClick={()=>{if(confirm('删除此密码条目？此操作无法撤销。'))void save({...vault,entries:vault.entries.filter(e=>e.id!==editor.id)},requestClose);}}><Trash2 size={16}/>删除</button>}<button className="primary" disabled={busy}>{busy ? <><span className="spinner" aria-hidden="true"/>加密中…</> : '加密保存'}</button></div>
-      </form>
-      )}
+        <div className="modal-actions">{vault.entries.some(e=>e.id===editor.id) && <button className="danger" type="button" disabled={busy} onClick={()=>{if(confirm('删除此密码条目？此操作无法撤销。'))void save({...vault,entries:vault.entries.filter(e=>e.id!==editor.id)},requestClose);}}><Trash2 size={16}/>删除</button>}<button type="button" className="primary" disabled={busy} onClick={submit}>{busy ? <><span className="spinner" aria-hidden="true"/>加密中…</> : '加密保存'}</button></div>
+      </div>;
+      }}
     </Modal>}
     {categoriesOpen && vault && <Modal error={error} title="管理分类" icon={<Folder size={18}/>} close={()=>{setCategoriesOpen(false);setCategoryQuery('');}} disabled={busy}>
       <p className="muted">编辑或删除已有分类。删除分类时，其中的密码会移至「未分类」。</p>
