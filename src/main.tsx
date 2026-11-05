@@ -334,17 +334,18 @@ function App() {
       };
       entrySaveRef.current = submit;
       // 不使用原生 form 提交：Chrome 会把含密码字段的表单当作登录表单并弹出「要保存密码吗」。
+      // 同理，Chrome 会忽略登录表单里文本字段的 autocomplete="off"，统一用 new-password 阻断自动填充和输入历史。
       return <div>
         <NameCombobox value={editor.name} options={nameOptions} onChange={name=>setEditor({...editor,name})}/>
-        <label>账号<input autoComplete="off" maxLength={1000} value={editor.username} onChange={e=>setEditor({...editor,username:e.target.value})}/></label>
+        <label>账号<input autoComplete="new-password" maxLength={1000} value={editor.username} onChange={e=>setEditor({...editor,username:e.target.value})}/></label>
         <label>密码<div className="password-field"><input id="entry-password" type={revealed?'text':'password'} autoComplete="new-password" maxLength={4096} value={editor.password} onChange={e=>setEditor({...editor,password:e.target.value})}/><div className="password-tools"><button type="button" aria-label={revealed?'隐藏密码':'显示密码'} onClick={()=>setRevealed(!revealed)}>{revealed?<EyeOff size={18}/>:<Eye size={18}/>}</button><button type="button" aria-label="复制密码" onClick={()=>void copy(editor.password)}><Copy size={18}/></button></div></div></label>
-        <label>备注（非必填）<textarea rows={3} maxLength={2000} placeholder="添加备注，例如安全问题、恢复方式…" value={editor.notes ?? ''} onChange={e=>setEditor({...editor,notes:e.target.value})}/></label>
+        <label>备注（非必填）<textarea rows={3} maxLength={2000} autoComplete="off" placeholder="添加备注，例如安全问题、恢复方式…" value={editor.notes ?? ''} onChange={e=>setEditor({...editor,notes:e.target.value})}/></label>
         <div className="field-label" id="entry-category-label">分类</div>
         <div className="category-field" role="group" aria-labelledby="entry-category-label">
           <button type="button" className="category-chip" aria-pressed={editor.categoryId===''} onClick={()=>setEditor({...editor,categoryId:''})}><CategoryIcon icon={DEFAULT_CATEGORY_ICON} size={14}/>未分类</button>
           {vault.categories.map(c=><button type="button" className="category-chip" key={c.id} aria-pressed={editor.categoryId===c.id} onClick={()=>setEditor({...editor,categoryId:c.id})}><CategoryIcon icon={c.icon} size={14}/>{c.name}</button>)}
         </div>
-        <div className="category-create"><input aria-label="新建分类" value={newCategory} maxLength={60} placeholder="新建分类，按回车创建" onChange={e=>setNewCategory(e.target.value)} onKeyDown={e=>{
+        <div className="category-create"><input aria-label="新建分类" autoComplete="off" value={newCategory} maxLength={60} placeholder="新建分类，按回车创建" onChange={e=>setNewCategory(e.target.value)} onKeyDown={e=>{
           if (e.key !== 'Enter') return;
           e.preventDefault();
           const name = newCategory.trim();
@@ -456,7 +457,7 @@ function NameCombobox({value,options,onChange}:{value:string;options:string[];on
   return <div className="name-field">
     <label htmlFor="entry-name">名称</label>
     <div className="name-combo" ref={comboRef}>
-      <input id="entry-name" autoFocus autoComplete="off" maxLength={1000} value={value} role="combobox" aria-expanded={visible} aria-controls="entry-name-options" aria-autocomplete="list" aria-activedescendant={visible && active >= 0 ? `entry-name-option-${active}` : undefined} onChange={e=>{onChange(e.target.value);setOpen(true);}} onFocus={()=>setOpen(true)} onBlur={e=>{if(!comboRef.current?.contains(e.relatedTarget as Node))setOpen(false);}} onKeyDown={handleKeyDown}/>
+      <input id="entry-name" autoFocus autoComplete="new-password" maxLength={1000} value={value} role="combobox" aria-expanded={visible} aria-controls="entry-name-options" aria-autocomplete="list" aria-activedescendant={visible && active >= 0 ? `entry-name-option-${active}` : undefined} onChange={e=>{onChange(e.target.value);setOpen(true);}} onFocus={()=>setOpen(true)} onBlur={e=>{if(!comboRef.current?.contains(e.relatedTarget as Node))setOpen(false);}} onKeyDown={handleKeyDown}/>
       {visible && <div className="name-suggest" id="entry-name-options" role="listbox" aria-label="已有名称">
         {matches.map((name,index)=><button type="button" role="option" tabIndex={-1} id={`entry-name-option-${index}`} aria-selected={index===active} className={index===active?'name-option active':'name-option'} key={name} onMouseDown={e=>e.preventDefault()} onMouseEnter={()=>setActive(index)} onClick={()=>choose(name)}><span>{name}</span></button>)}
       </div>}
