@@ -28,7 +28,7 @@ test('CRUD, category filtering, encrypted persistence, lock, backup and import',
   await page.getByRole('button',{name:'新增密码',exact:true}).click();
   await page.getByLabel('账号',{exact:true}).fill('alice@example.com');
   await page.getByLabel('密码',{exact:true}).fill('secret-entry-password');
-  await page.getByRole('combobox',{name:'分类',exact:true}).selectOption({label:'团队'});
+  await page.getByRole('dialog').getByRole('button',{name:'团队',exact:true}).click();
   await page.getByRole('button',{name:'加密保存'}).click();
   await expect(page.getByRole('button',{name:'编辑 alice@example.com',exact:true})).toBeVisible();
   await dialogClosed();
@@ -44,7 +44,7 @@ test('CRUD, category filtering, encrypted persistence, lock, backup and import',
   await dialogClosed();
   await openSwitcher(page);
   await page.getByRole('button',{name:'未分类 (0)',exact:true}).click();
-  await expect(page.getByText('从第一个密码开始')).toBeVisible();
+  await expect(page.getByText('没有未分类的密码')).toBeVisible();
   await openSwitcher(page);
   await page.getByRole('button',{name:'所有密码 (1)',exact:true}).click();
   const download = page.waitForEvent('download');
@@ -78,8 +78,49 @@ test('CRUD, category filtering, encrypted persistence, lock, backup and import',
   await page.getByRole('button',{name:'编辑 updated@example.com',exact:true}).click();
   await page.getByRole('button',{name:'删除',exact:true}).click();
   await dialogClosed();
-  await expect(page.getByText('从第一个密码开始')).toBeVisible();
+  await expect(page.getByText('没有未分类的密码')).toBeVisible();
   expect(await page.evaluate(()=>document.documentElement.scrollWidth <= innerWidth)).toBe(true);
+});
+test('categorizes entries inline, creates categories in place and sorts them in bulk', async ({page}) => {
+  await page.goto('/');
+  await page.getByLabel('主密码',{exact:true}).fill(master);
+  await page.getByLabel('再次输入主密码').fill(master);
+  await page.getByRole('button',{name:'创建保险库'}).click();
+  await expect(page.getByRole('button',{name:'新增密码',exact:true})).toBeVisible();
+  for (const account of ['a@example.com','b@example.com']) {
+    await page.getByRole('button',{name:'新增密码',exact:true}).click();
+    await page.getByLabel('账号',{exact:true}).fill(account);
+    await page.getByLabel('密码',{exact:true}).fill('secret-entry-password');
+    await page.getByRole('button',{name:'加密保存'}).click();
+    await expect(page.getByRole('button',{name:`编辑 ${account}`,exact:true})).toBeVisible();
+  }
+  // 行内点标签即可归类，并支持顺手建分类
+  await page.getByRole('button',{name:'修改分类：a@example.com，当前 未分类'}).click();
+  await page.getByLabel('搜索或新建分类').fill('工作');
+  await page.getByRole('button',{name:'新建分类「工作」'}).click();
+  await expect(page.getByRole('button',{name:'修改分类：a@example.com，当前 工作'})).toBeVisible();
+  // 编辑弹窗内直接新建分类
+  await page.getByRole('button',{name:'编辑 b@example.com',exact:true}).click();
+  await page.getByLabel('新建分类').fill('个人');
+  await page.getByLabel('新建分类').press('Enter');
+  await expect(page.getByRole('dialog').getByRole('button',{name:'个人',exact:true})).toHaveAttribute('aria-pressed','true');
+  await page.getByRole('button',{name:'加密保存'}).click();
+  await expect(page.getByRole('button',{name:'修改分类：b@example.com，当前 个人'})).toBeVisible();
+  // 未分类视图批量归类
+  await page.getByRole('button',{name:'修改分类：b@example.com，当前 个人'}).click();
+  await page.getByRole('group',{name:'选择分类'}).getByRole('button',{name:'未分类',exact:true}).click();
+  await expect(page.getByRole('button',{name:'修改分类：b@example.com，当前 未分类'})).toBeVisible();
+  await openSwitcher(page);
+  await page.getByRole('button',{name:/^未分类/}).click();
+  await expect(page.getByText('1 条密码还没有分类')).toBeVisible();
+  await page.getByRole('button',{name:'批量归类'}).click();
+  await page.getByRole('button',{name:'全选',exact:true}).click();
+  await page.getByRole('button',{name:'移至分类'}).click();
+  await page.getByRole('group',{name:'选择分类'}).getByRole('button',{name:'工作'}).click();
+  await expect(page.getByText('没有未分类的密码')).toBeVisible();
+  await openSwitcher(page);
+  await page.getByRole('button',{name:/^所有密码/}).click();
+  await expect(page.getByRole('button',{name:'修改分类：b@example.com，当前 工作'})).toBeVisible();
 });
 test('rejects broken imports and preserves existing ciphertext',async({page})=>{
   await page.goto('/');
