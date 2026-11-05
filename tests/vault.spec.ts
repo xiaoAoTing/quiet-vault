@@ -1,11 +1,9 @@
 import { test, expect, type Page } from '@playwright/test';
 const master = 'Correct horse battery 2026';
-async function openSwitcher(page: Page) {
-  await page.getByRole('button',{name:/切换分类/}).click();
-  await expect(page.getByRole('button',{name:'管理分类',exact:true})).toBeVisible();
+async function openSidebar(page: Page) {
+  await expect(page.getByRole('navigation',{name:'分类',exact:true})).toBeVisible();
 }
 async function manageCategories(page: Page) {
-  await openSwitcher(page);
   await page.getByRole('button',{name:'管理分类',exact:true}).click();
 }
 test('CRUD, category filtering, encrypted persistence, lock, backup and import', async ({page}) => {
@@ -42,10 +40,10 @@ test('CRUD, category filtering, encrypted persistence, lock, backup and import',
   await page.getByRole('button',{name:'加密保存'}).click();
   await expect(page.getByRole('button',{name:'编辑 updated@example.com',exact:true})).toBeVisible();
   await dialogClosed();
-  await openSwitcher(page);
+  await openSidebar(page);
   await page.getByRole('button',{name:'未分类 (0)',exact:true}).click();
   await expect(page.getByText('没有未分类的密码')).toBeVisible();
-  await openSwitcher(page);
+  await openSidebar(page);
   await page.getByRole('button',{name:'所有密码 (1)',exact:true}).click();
   const download = page.waitForEvent('download');
   await page.getByRole('button',{name:'导出备份',exact:true}).click();
@@ -72,7 +70,7 @@ test('CRUD, category filtering, encrypted persistence, lock, backup and import',
   await expect(page.getByRole('button',{name:'删除分类 团队'})).toHaveCount(0);
   await page.getByRole('button',{name:'关闭弹窗'}).click();
   await dialogClosed();
-  await openSwitcher(page);
+  await openSidebar(page);
   await page.getByRole('button',{name:/^未分类/}).click();
   await expect(page.getByRole('button',{name:'编辑 updated@example.com',exact:true})).toBeVisible();
   await page.getByRole('button',{name:'编辑 updated@example.com',exact:true}).click();
@@ -110,7 +108,7 @@ test('categorizes entries inline, creates categories in place and sorts them in 
   await page.getByRole('button',{name:'修改分类：b@example.com，当前 个人'}).click();
   await page.getByRole('group',{name:'选择分类'}).getByRole('button',{name:'未分类',exact:true}).click();
   await expect(page.getByRole('button',{name:'修改分类：b@example.com，当前 未分类'})).toBeVisible();
-  await openSwitcher(page);
+  await openSidebar(page);
   await page.getByRole('button',{name:/^未分类/}).click();
   await expect(page.getByText('1 条密码还没有分类')).toBeVisible();
   await page.getByRole('button',{name:'批量归类'}).click();
@@ -118,7 +116,7 @@ test('categorizes entries inline, creates categories in place and sorts them in 
   await page.getByRole('button',{name:'移至分类'}).click();
   await page.getByRole('group',{name:'选择分类'}).getByRole('button',{name:'工作'}).click();
   await expect(page.getByText('没有未分类的密码')).toBeVisible();
-  await openSwitcher(page);
+  await openSidebar(page);
   await page.getByRole('button',{name:/^所有密码/}).click();
   await expect(page.getByRole('button',{name:'修改分类：b@example.com，当前 工作'})).toBeVisible();
 });
@@ -146,12 +144,12 @@ test('assigns searchable custom category icons, randomizes and persists them', a
   await expect(page.getByRole('button',{name:'使用图标 邮箱'})).toHaveAttribute('aria-pressed','true');
   await page.getByRole('button',{name:'取消编辑'}).click();
   await page.getByRole('button',{name:'关闭弹窗'}).click();
-  await openSwitcher(page);
+  await openSidebar(page);
   await expect(page.getByRole('button',{name:/^工作/}).locator('svg[data-icon="lucide:mail"]')).toHaveCount(1);
   await page.getByRole('button',{name:/^工作/}).click();
   await page.reload();
   await expect(page.getByRole('button',{name:'新增密码',exact:true})).toBeVisible();
-  await openSwitcher(page);
+  await openSidebar(page);
   await expect(page.getByRole('button',{name:/^工作/}).locator('svg[data-icon="lucide:mail"]')).toHaveCount(1);
   expect(remoteIconRequests).toEqual([]);
 });
@@ -197,7 +195,7 @@ test('keeps the vault unlocked when the page is hidden', async ({page}) => {
   });
   await expect(page.getByRole('button',{name:'新增密码',exact:true})).toBeVisible();
 });
-test('copies account, password and notes from the entry list', async ({page, context}) => {
+test('copies name, account and password from the entry list', async ({page, context}) => {
   await context.grantPermissions(['clipboard-read','clipboard-write']);
   await page.goto('/');
   await page.getByLabel('主密码',{exact:true}).fill(master);
@@ -205,19 +203,19 @@ test('copies account, password and notes from the entry list', async ({page, con
   await page.getByRole('button',{name:'创建保险库'}).click();
   await expect(page.getByRole('button',{name:'新增密码',exact:true})).toBeVisible();
   await page.getByRole('button',{name:'新增密码',exact:true}).click();
+  await page.getByLabel('名称',{exact:true}).fill('备用邮箱');
   await page.getByLabel('账号',{exact:true}).fill('alice@example.com');
   await page.getByLabel('密码',{exact:true}).fill('secret-entry-password');
-  await page.getByLabel('备注',{exact:true}).fill('备用邮箱\n请勿外传');
   await page.getByRole('button',{name:'加密保存'}).click();
-  await expect(page.getByRole('button',{name:'编辑 alice@example.com',exact:true})).toBeVisible();
-  await page.getByRole('button',{name:'复制 alice@example.com 的账号、密码和备注'}).click();
+  await expect(page.getByRole('button',{name:'编辑 备用邮箱',exact:true})).toBeVisible();
+  await page.getByRole('button',{name:'复制 备用邮箱 的名称、账号和密码'}).click();
   await expect(page.getByRole('status')).toContainText('已复制');
-  expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe('账号：alice@example.com\n密码：secret-entry-password\n备注：备用邮箱\n请勿外传');
-  // 空账号与空备注不产生多余标签行
+  expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe('名称：备用邮箱\n账号：alice@example.com\n密码：secret-entry-password');
+  // 空名称与空账号不产生多余标签行
   await page.getByRole('button',{name:'新增密码',exact:true}).click();
   await page.getByLabel('密码',{exact:true}).fill('only-password');
   await page.getByRole('button',{name:'加密保存'}).click();
-  await page.getByRole('button',{name:'复制 未命名条目 的账号、密码和备注'}).click();
+  await page.getByRole('button',{name:'复制 未命名条目 的名称、账号和密码'}).click();
   expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe('密码：only-password');
 });
 test('accepts .json backups and does not restrict the picker on iOS', async ({page}, testInfo) => {

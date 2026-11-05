@@ -1,6 +1,6 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
-import { ShieldCheck, LockKeyhole, Plus, Search, Download, Upload, Folder, KeyRound, Pencil, Trash2, X, Eye, EyeOff, Copy, ArrowRight, Sun, Moon, ChevronDown, Check, Shuffle } from './icons';
+import { ShieldCheck, LockKeyhole, Plus, Search, Download, Upload, Folder, KeyRound, Pencil, Trash2, X, Eye, EyeOff, Copy, ArrowRight, Sun, Moon, Check, Shuffle } from './icons';
 import { CategoryIcon, categoryIconLabel, DEFAULT_CATEGORY_ICON, randomCategoryIcon, searchCategoryIcons } from './category-icons';
 import { createVault, openVault, decryptVault, parseEnvelope, seal, masterPasswordProblem, MAX_FILE_SIZE, type Vault, type Entry, type Category, type Envelope } from './vault';
 import { saveSessionKey, loadSessionKey, clearSessionKey } from './session';
@@ -22,11 +22,11 @@ function applyTheme(theme: Theme) {
 }
 const initialTheme = readTheme();
 applyTheme(initialTheme);
-const blankEntry = (): Entry => ({ id: crypto.randomUUID(), username: '', password: '', notes: '', categoryId: '', updatedAt: '' });
-function entryLabel(entry: Entry) { return entry.username || entry.notes.split('\n')[0].trim() || '未命名条目'; }
-function entrySubtitle(entry: Entry) { return entry.username ? entry.notes.split('\n')[0].trim() : '未填写账号'; }
+const blankEntry = (): Entry => ({ id: crypto.randomUUID(), name: '', username: '', password: '', categoryId: '', updatedAt: '' });
+function entryLabel(entry: Entry) { return entry.name.trim() || entry.username || '未命名条目'; }
+function entrySubtitle(entry: Entry) { return entry.name.trim() ? entry.username || '未填写账号' : entry.username ? '未填写名称' : '未填写账号'; }
 function entryClipboard(entry: Entry) {
-  return [entry.username && `账号：${entry.username}`, `密码：${entry.password}`, entry.notes.trim() && `备注：${entry.notes.trim()}`].filter(Boolean).join('\n');
+  return [entry.name.trim() && `名称：${entry.name.trim()}`, entry.username && `账号：${entry.username}`, `密码：${entry.password}`].filter(Boolean).join('\n');
 }
 // 备份文件名用设备本地时间，避免 UTC 造成的日期/时刻偏差。
 function localStamp(date = new Date()) {
@@ -47,8 +47,6 @@ function App() {
   const [filter, setFilter] = useState('*');
   const [query, setQuery] = useState('');
   const [categoryQuery, setCategoryQuery] = useState('');
-  const [switcherOpen, setSwitcherOpen] = useState(false);
-  const switcherRef = useRef<HTMLDivElement>(null);
   const [editor, setEditor] = useState<Entry | null>(null);
   const [categoriesOpen, setCategoriesOpen] = useState(false);
   const [categoryName, setCategoryName] = useState('');
@@ -70,7 +68,7 @@ function App() {
   function toggleTheme() { setTheme(value => value === 'dark' ? 'light' : 'dark'); }
   function clearSession() {
     generation.current++;
-    assign(null); setEditor(null); setCategoriesOpen(false); setSwitcherOpen(false); setPassword(''); setConfirmPassword(''); setRevealed(false); setQuery(''); setCategoryQuery(''); setCategoryName(''); setCategoryId(''); setCategoryIcon(DEFAULT_CATEGORY_ICON); setPending(null); setFilter('*');
+    assign(null); setEditor(null); setCategoriesOpen(false); setPassword(''); setConfirmPassword(''); setRevealed(false); setQuery(''); setCategoryQuery(''); setCategoryName(''); setCategoryId(''); setCategoryIcon(DEFAULT_CATEGORY_ICON); setPending(null); setFilter('*');
     setMenu(null); setSelecting(false); setSelectedIds(new Set()); setNewCategory('');
   }
   function changeFilter(value: string) {
@@ -102,7 +100,7 @@ function App() {
     const restored = envelope ? await restoreSession(envelope) : null;
     if (restored) {
       generation.current++;
-      setEditor(null); setCategoriesOpen(false); setSwitcherOpen(false); setRevealed(false);
+      setEditor(null); setCategoriesOpen(false); setRevealed(false);
       assign(restored);
       return true;
     }
@@ -145,14 +143,6 @@ function App() {
     return () => { cancelled = true; window.removeEventListener('storage', changed); };
   }, []);
   useEffect(() => { if (!notice) return; const timer = setTimeout(() => setNotice(''), 4000); return () => clearTimeout(timer); }, [notice]);
-  useEffect(() => {
-    if (!switcherOpen) return;
-    const outside = (e: PointerEvent) => { if (!switcherRef.current?.contains(e.target as Node)) setSwitcherOpen(false); };
-    const escape = (e: KeyboardEvent) => { if (e.key === 'Escape') setSwitcherOpen(false); };
-    document.addEventListener('pointerdown', outside);
-    document.addEventListener('keydown', escape);
-    return () => { document.removeEventListener('pointerdown', outside); document.removeEventListener('keydown', escape); };
-  }, [switcherOpen]);
   useEffect(() => { applyTheme(theme); try { localStorage.setItem(THEME_KEY, theme); } catch {} }, [theme]);
   async function run(task: (token: number) => Promise<void>) {
     if (busyRef.current) return;
@@ -255,9 +245,7 @@ function App() {
   async function copy(value: string) { try { await navigator.clipboard.writeText(value); setNotice('已复制。使用后请清理剪贴板'); } catch { setError('无法访问剪贴板，请显示后手动复制'); } }
   const vault = session?.vault;
   const selected = filter === '*' ? '所有密码' : filter === '' ? '未分类' : vault?.categories.find(c => c.id === filter)?.name ?? '所有密码';
-  const selectedCategory = filter !== '*' && filter !== '' ? vault?.categories.find(c => c.id === filter) : undefined;
-  const entries = vault?.entries.filter(e => (filter === '*' || e.categoryId === filter) && [e.username,e.notes,vault.categories.find(c=>c.id===e.categoryId)?.name ?? '未分类'].join(' ').toLocaleLowerCase().includes(query.toLocaleLowerCase())) ?? [];
-  const categoryMatches = vault?.categories.filter(c=>c.name.toLocaleLowerCase().includes(categoryQuery.toLocaleLowerCase())) ?? [];
+  const entries = vault?.entries.filter(e => (filter === '*' || e.categoryId === filter) && [e.name,e.username,vault.categories.find(c=>c.id===e.categoryId)?.name ?? '未分类'].join(' ').toLocaleLowerCase().includes(query.toLocaleLowerCase())) ?? [];
   return <>
     <input ref={fileRef} type="file" accept={isIOS ? undefined : '.json,.qvault,application/json'} hidden onChange={e => { void importFile(e.target.files?.[0]); e.target.value = ''; }}/>
     {restoring ? <main className="gate gate-restoring"><section className="gate-card"><div className="lock-emblem"><LockKeyhole size={30}/></div><p className="eyebrow">QUIET VAULT</p><h1>正在解锁…</h1><p className="muted">正在从此设备恢复加密会话。</p></section></main> : !session ? <main className="gate">
@@ -272,21 +260,19 @@ function App() {
         <div className="security-note"><ShieldCheck size={18}/><span>Argon2id + AES-256-GCM · 仅在你的浏览器中解密</span></div>
       </section><p className="gate-foot">请牢记主密码。我们无法找回或重置它。<br/>浏览器存储不是备份，请定期导出加密文件。</p>
     </main> : <div className="app-shell">
-      <header className="app-header"><div className="brand-block"><a className="brand" href="#"><ShieldCheck/><span>Quiet Vault<span className="brand-dot">.</span></span></a><div className="workspace-label">个人空间 <span>LOCAL</span></div></div><div className="header-actions"><ThemeToggle theme={theme} onToggle={toggleTheme}/><div className="category-switcher" ref={switcherRef}>
-        <button type="button" className="switcher-trigger" aria-haspopup="true" aria-expanded={switcherOpen} aria-controls="category-switcher-menu" aria-label={`切换分类，当前：${selected}`} onClick={()=>setSwitcherOpen(value=>!value)}>{filter === '*' ? <KeyRound size={16}/> : filter === '' ? <Folder size={16}/> : <CategoryIcon icon={selectedCategory?.icon} size={16}/>}<span className="switcher-label">{selected}</span><ChevronDown size={13}/></button>
-        {switcherOpen && <div className="switcher-menu" id="category-switcher-menu">
-          <input className="switcher-search" aria-label="搜索分类" placeholder="查找分类…" value={categoryQuery} onChange={e=>setCategoryQuery(e.target.value)}/>
-          <div className="switcher-list">
-            <button type="button" className={filter==='*'?'switcher-item active':'switcher-item'} onClick={()=>{changeFilter('*');setSwitcherOpen(false);}}><KeyRound size={16}/><span className="switcher-name">所有密码</span><span className="switcher-count">{vault!.entries.length}</span></button>
-            {categoryMatches.map(c=><button type="button" className={filter===c.id?'switcher-item active':'switcher-item'} key={c.id} onClick={()=>{changeFilter(c.id);setSwitcherOpen(false);}}><CategoryIcon icon={c.icon} size={16}/><span className="switcher-name">{c.name}</span><span className="switcher-count">{vault!.entries.filter(e=>e.categoryId===c.id).length}</span></button>)}
-            <button type="button" className={filter===''?'switcher-item active':'switcher-item'} onClick={()=>{changeFilter('');setSwitcherOpen(false);}}><Folder size={16}/><span className="switcher-name">未分类</span><span className="switcher-count">{vault!.entries.filter(e=>!e.categoryId).length}</span></button>
-            {categoryQuery && !categoryMatches.length && <p className="switcher-empty">没有匹配的分类</p>}
-          </div>
-          <div className="switcher-footer"><button type="button" className="switcher-manage" onClick={()=>{setSwitcherOpen(false);setCategoriesOpen(true);}}><Pencil size={15}/>管理分类</button></div>
-        </div>}
-      </div><button onClick={lock} disabled={busy}><LockKeyhole size={16}/>锁定</button></div></header>
+      <header className="app-header"><div className="brand-block"><a className="brand" href="#"><ShieldCheck/><span>Quiet Vault<span className="brand-dot">.</span></span></a><div className="workspace-label">个人空间 <span>LOCAL</span></div></div><div className="header-actions"><ThemeToggle theme={theme} onToggle={toggleTheme}/><button onClick={lock} disabled={busy}><LockKeyhole size={16}/>锁定</button></div></header>
+      <div className="app-body">
+      <aside className="sidebar" aria-label="分类导航">
+        <p className="sidebar-title">分类</p>
+        <nav className="category-nav" aria-label="分类">
+          <button type="button" className={filter==='*'?'nav-item active':'nav-item'} aria-current={filter==='*'?'page':undefined} onClick={()=>changeFilter('*')}><KeyRound size={16}/><span className="nav-name">所有密码</span><span className="nav-count">{vault!.entries.length}</span></button>
+          {vault!.categories.map(c=><button type="button" className={filter===c.id?'nav-item active':'nav-item'} aria-current={filter===c.id?'page':undefined} key={c.id} onClick={()=>changeFilter(c.id)}><CategoryIcon icon={c.icon} size={16}/><span className="nav-name">{c.name}</span><span className="nav-count">{vault!.entries.filter(e=>e.categoryId===c.id).length}</span></button>)}
+          <button type="button" className={filter===''?'nav-item active':'nav-item'} aria-current={filter===''?'page':undefined} onClick={()=>changeFilter('')}><Folder size={16}/><span className="nav-name">未分类</span><span className="nav-count">{vault!.entries.filter(e=>!e.categoryId).length}</span></button>
+        </nav>
+        <button type="button" className="sidebar-manage" onClick={()=>setCategoriesOpen(true)}><Pencil size={15}/>管理分类</button>
+      </aside>
       <main className="workspace"><div className="content"><div className="list-head"><p className="breadcrumb">个人保险库 <span>/</span> {selected}</p><button className="primary" disabled={busy} onClick={()=>{setEditor({...blankEntry(),categoryId:filter==='*'?'':filter});setRevealed(false);}}><Plus size={18}/>新增密码</button></div>
-          <div className="toolbar"><div className="search"><Search size={19}/><input aria-label="搜索密码" placeholder="搜索账号、备注或分类…" value={query} onChange={e=>setQuery(e.target.value)}/></div><div className="file-actions"><button disabled={busy} onClick={()=>fileRef.current?.click()}><Upload size={15}/>导入</button><button disabled={busy} onClick={exportFile}><Download size={15}/>导出备份</button></div></div>
+          <div className="toolbar"><div className="search"><Search size={19}/><input aria-label="搜索密码" placeholder="搜索名称、账号或分类…" value={query} onChange={e=>setQuery(e.target.value)}/></div><div className="file-actions"><button disabled={busy} onClick={()=>fileRef.current?.click()}><Upload size={15}/>导入</button><button disabled={busy} onClick={exportFile}><Download size={15}/>导出备份</button></div></div>
           {busy && <div className="save-status"><span/><span>正在加密保存…</span></div>}
           {filter === '' && entries.length > 0 && !selecting && <div className="hint-bar">
             <div className="hint-icon"><Folder size={17}/></div>
@@ -302,13 +288,14 @@ function App() {
               <time className="entry-date" dateTime={e.updatedAt} title={`更新时间：${e.updatedAt}`} aria-label={`更新时间：${e.updatedAt}`}>{/^\d{4}-\d{2}-\d{2}/.test(e.updatedAt) ? e.updatedAt.slice(0,10) : '—'}</time>
               <button className="entry-main" onClick={selecting ? ()=>toggleSelected(e.id) : ()=>{setEditor({...e});setRevealed(false);}} aria-pressed={selecting ? isSelected : undefined}><strong>{entryLabel(e)}</strong>{entrySubtitle(e) && <span>{entrySubtitle(e)}</span>}</button>
               {selecting ? <span className={`tag${name?'':' unset'}${category?.icon?' with-icon':''}`}>{category && <CategoryIcon icon={category.icon} size={12}/>}{name ?? '未分类'}</span> : <button type="button" className={`tag tag-button${name?'':' unset'}${category?.icon?' with-icon':''}`} aria-haspopup="true" aria-expanded={menu?.ids.length===1 && menu.ids[0]===e.id} aria-label={`修改分类：${entryLabel(e)}，当前 ${name ?? '未分类'}`} onClick={ev=>{const anchor=ev.currentTarget;setMenu(menu?.anchor===anchor?null:{ ids:[e.id], current:e.categoryId, anchor });}}>{category && <CategoryIcon icon={category.icon} size={12}/>}{name ?? '未分类'}</button>}
-              {!selecting && <><button className="icon-button" aria-label={`复制 ${entryLabel(e)} 的账号、密码和备注`} onClick={()=>void copy(entryClipboard(e))}><Copy size={18}/></button><button className="icon-button" aria-label={`编辑 ${entryLabel(e)}`} onClick={()=>{setEditor({...e});setRevealed(false);}}><Pencil size={17}/></button></>}
+              {!selecting && <><button className="icon-button" aria-label={`复制 ${entryLabel(e)} 的名称、账号和密码`} onClick={()=>void copy(entryClipboard(e))}><Copy size={18}/></button><button className="icon-button" aria-label={`编辑 ${entryLabel(e)}`} onClick={()=>{setEditor({...e});setRevealed(false);}}><Pencil size={17}/></button></>}
             </article>;
           }) : <div className="empty"><div className="empty-icon"><KeyRound size={30}/></div><h2>{query ? '没有匹配的密码' : filter === '' ? '没有未分类的密码' : '从第一个密码开始'}</h2><p>{query ? '试试其他关键词，或选择其他分类。' : filter === '' ? '所有密码都已归类。' : '添加登录信息，或导入已有的加密备份。'}</p>{!query && filter !== '' && <button onClick={()=>{setEditor({...blankEntry(),categoryId:filter==='*'?'':filter});setRevealed(false);}}><Plus size={17}/>添加密码</button>}</div>}</section>
           <div className="backup-note"><ShieldCheck size={22}/><div><strong>本地保存，安心掌控</strong><p>浏览器数据可能被清理。定期导出加密备份，在其他设备导入即可继续使用。</p></div></div>
           <footer><span><LockKeyhole size={13}/>端到本地加密 · 无后台服务</span></footer>
         </div>
       </main>
+      </div>
       {selecting && <div className="selection-bar" role="toolbar" aria-label="批量归类">
         <span className="selection-count">已选 {selectedIds.size} 条</span>
         <button type="button" onClick={()=>setSelectedIds(selectedIds.size===entries.length ? new Set() : new Set(entries.map(e=>e.id)))}>{selectedIds.size===entries.length ? '取消全选' : '全选'}</button>
@@ -319,7 +306,8 @@ function App() {
     {editor && vault && <Modal error={error} title={vault.entries.some(e=>e.id===editor.id)?'编辑密码':'新增密码'} icon={<KeyRound size={18}/>} close={()=>setEditor(null)} disabled={busy}>
       {requestClose => (
       <form onSubmit={e=>{e.preventDefault();const next={...editor,username:editor.username.trim(),updatedAt:new Date().toISOString()};void save({...vault,entries:[...vault.entries.filter(x=>x.id!==next.id),next]},requestClose);}}>
-        <label>账号<input autoFocus autoComplete="off" maxLength={1000} value={editor.username} onChange={e=>setEditor({...editor,username:e.target.value})}/></label>
+        <label>名称<input autoFocus autoComplete="off" maxLength={1000} value={editor.name} onChange={e=>setEditor({...editor,name:e.target.value})}/></label>
+        <label>账号<input autoComplete="off" maxLength={1000} value={editor.username} onChange={e=>setEditor({...editor,username:e.target.value})}/></label>
         <label>密码<div className="password-field"><input id="entry-password" required type={revealed?'text':'password'} autoComplete="new-password" maxLength={4096} value={editor.password} onChange={e=>setEditor({...editor,password:e.target.value})}/><div className="password-tools"><button type="button" aria-label={revealed?'隐藏密码':'显示密码'} onClick={()=>setRevealed(!revealed)}>{revealed?<EyeOff size={18}/>:<Eye size={18}/>}</button><button type="button" aria-label="复制密码" onClick={()=>void copy(editor.password)}><Copy size={18}/></button></div></div></label>
         <div className="field-label" id="entry-category-label">分类</div>
         <div className="category-field" role="group" aria-labelledby="entry-category-label">
@@ -333,7 +321,6 @@ function App() {
           if (!name) return;
           void createCategoryInline(name, id => { setEditor(current => current ? {...current, categoryId: id} : current); setNewCategory(''); });
         }}/></div>
-        <label>备注<textarea rows={3} maxLength={10000} value={editor.notes} onChange={e=>setEditor({...editor,notes:e.target.value})}/></label>
         <div className="modal-actions">{vault.entries.some(e=>e.id===editor.id) && <button className="danger" type="button" disabled={busy} onClick={()=>{if(confirm('删除此密码条目？此操作无法撤销。'))void save({...vault,entries:vault.entries.filter(e=>e.id!==editor.id)},requestClose);}}><Trash2 size={16}/>删除</button>}<button className="primary" disabled={busy}>{busy ? <><span className="spinner" aria-hidden="true"/>加密中…</> : '加密保存'}</button></div>
       </form>
       )}
