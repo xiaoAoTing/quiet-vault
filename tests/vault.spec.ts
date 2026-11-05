@@ -123,6 +123,8 @@ test('categorizes entries inline, creates categories in place and sorts them in 
   await expect(page.getByRole('button',{name:'修改分类：b@example.com，当前 工作'})).toBeVisible();
 });
 test('assigns searchable custom category icons, randomizes and persists them', async ({page}) => {
+  const remoteIconRequests: string[] = [];
+  page.on('request', request => { if (request.url().includes('iconify.design')) remoteIconRequests.push(request.url()); });
   await page.goto('/');
   await page.getByLabel('主密码',{exact:true}).fill(master);
   await page.getByLabel('再次输入主密码').fill(master);
@@ -132,7 +134,7 @@ test('assigns searchable custom category icons, randomizes and persists them', a
   await page.getByLabel('新分类名称').fill('工作');
   await page.getByLabel('搜索分类图标').fill('邮箱');
   await page.getByRole('button',{name:'使用图标 邮箱'}).click();
-  await expect(page.locator('.icon-picker-meta span')).toHaveText('mail');
+  await expect(page.locator('.icon-picker-meta span')).toHaveText('邮箱 · mail');
   const before = await page.locator('.icon-picker-meta span').textContent();
   await page.getByRole('button',{name:'随机',exact:true}).click();
   await expect(page.locator('.icon-picker-meta span')).not.toHaveText(before!);
@@ -151,6 +153,7 @@ test('assigns searchable custom category icons, randomizes and persists them', a
   await expect(page.getByRole('button',{name:'新增密码',exact:true})).toBeVisible();
   await openSwitcher(page);
   await expect(page.getByRole('button',{name:/^工作/}).locator('svg[data-icon="lucide:mail"]')).toHaveCount(1);
+  expect(remoteIconRequests).toEqual([]);
 });
 test('rejects broken imports and preserves existing ciphertext',async({page})=>{
   await page.goto('/');

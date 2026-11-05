@@ -99,6 +99,11 @@ export function categoryIconName(icon?: string | null): string | null {
   return lucide.icons[name] || lucide.aliases?.[name] ? icon : null;
 }
 
+export function categoryIconLabel(icon?: string): string {
+  const name = icon?.startsWith(PREFIX) ? icon.slice(PREFIX.length) : icon ?? '';
+  return presets.find(option => option.name === name)?.label ?? name;
+}
+
 export function CategoryIcon({ icon, size = 16, className }: { icon?: string; size?: number; className?: string }) {
   const name = categoryIconName(icon) ?? DEFAULT_CATEGORY_ICON;
   return <Icon icon={name} width={size} height={size} className={className} data-icon={name} aria-hidden="true" focusable="false"/>;

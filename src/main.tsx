@@ -1,7 +1,7 @@
 import React, { useCallback, useEffect, useLayoutEffect, useRef, useState } from 'react';
 import { createRoot } from 'react-dom/client';
 import { ShieldCheck, LockKeyhole, Plus, Search, Download, Upload, Folder, KeyRound, Pencil, Trash2, X, Eye, EyeOff, Copy, ArrowRight, Sun, Moon, ChevronDown, Check, Shuffle } from './icons';
-import { CategoryIcon, DEFAULT_CATEGORY_ICON, randomCategoryIcon, searchCategoryIcons } from './category-icons';
+import { CategoryIcon, categoryIconLabel, DEFAULT_CATEGORY_ICON, randomCategoryIcon, searchCategoryIcons } from './category-icons';
 import { createVault, openVault, decryptVault, parseEnvelope, seal, masterPasswordProblem, MAX_FILE_SIZE, type Vault, type Entry, type Category, type Envelope } from './vault';
 import { saveSessionKey, loadSessionKey, clearSessionKey } from './session';
 import './style.css';
@@ -402,10 +402,12 @@ function CategoryMenu({anchor,current,categories,onPick,onCreate,onClose}:{ancho
 function IconPicker({value,onChange}:{value:string;onChange:(icon:string)=>void}) {
   const [query, setQuery] = useState('');
   const options = searchCategoryIcons(query);
+  const iconName = value.slice('lucide:'.length);
+  const iconLabel = categoryIconLabel(value);
   return <div className="icon-picker">
     <div className="icon-picker-head">
       <span className="icon-preview" aria-hidden="true"><CategoryIcon icon={value} size={20}/></span>
-      <div className="icon-picker-meta"><strong>分类图标</strong><span>{value.slice('lucide:'.length)}</span></div>
+      <div className="icon-picker-meta"><strong>分类图标</strong><span>{iconLabel === iconName ? iconName : `${iconLabel} · ${iconName}`}</span></div>
       <button type="button" className="icon-random" onClick={()=>onChange(randomCategoryIcon(value))}><Shuffle size={15}/>随机</button>
     </div>
     <input className="icon-search" aria-label="搜索分类图标" placeholder="搜索图标，如 home、工作、邮箱…" maxLength={40} value={query} onChange={e=>setQuery(e.target.value)} onKeyDown={e=>{if(e.key==='Enter')e.preventDefault();}}/>
