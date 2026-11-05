@@ -59,12 +59,14 @@
   --danger-text: #7c2d33;
   --danger-border: rgba(178, 86, 92, .34);
 
-  --toast-bg: rgba(36, 74, 55, .94);
-  --toast-text: #eaf7ef;
-  --toast-border: rgba(255, 255, 255, .18);
-  --toast-danger-bg: rgba(104, 40, 45, .96);
-  --toast-danger-text: #ffe9ea;
-  --toast-danger-border: rgba(255, 255, 255, .16);
+  --toast-bg: rgba(240, 249, 243, .92);
+  --toast-text: #2f5d47;
+  --toast-border: rgba(47, 107, 80, .16);
+  --toast-danger-bg: rgba(252, 240, 241, .94);
+  --toast-danger-text: #8d393f;
+  --toast-danger-border: rgba(178, 86, 92, .22);
+  --toast-chip-bg: rgba(47, 107, 80, .07);
+  --toast-chip-hover: rgba(47, 107, 80, .14);
 
   --overlay: rgba(20, 38, 28, .36);
   --shadow-card: 0 1px 2px rgba(31, 62, 45, .035), 0 10px 30px -18px rgba(31, 62, 45, .22);
@@ -73,7 +75,7 @@
   --shadow-menu: 0 2px 6px rgba(24, 48, 35, .06), 0 28px 70px -18px rgba(24, 48, 35, .28);
   --shadow-dialog: 0 40px 110px -30px rgba(16, 40, 27, .4), 0 12px 32px -18px rgba(16, 40, 27, .22);
   --shadow-dialog-inset: inset 0 1px 0 rgba(255, 255, 255, .9);
-  --shadow-toast: 0 18px 40px -16px rgba(20, 48, 32, .42);
+  --shadow-toast: 0 14px 32px -18px rgba(20, 48, 32, .3);
   --selection-text: #f7fbf8;
 }
 
@@ -129,12 +131,14 @@
   --danger-text: #ffc9cd;
   --danger-border: rgba(232, 162, 166, .3);
 
-  --toast-bg: rgba(22, 46, 34, .95);
-  --toast-text: #dcf5e8;
-  --toast-border: rgba(255, 255, 255, .12);
-  --toast-danger-bg: rgba(66, 28, 33, .96);
-  --toast-danger-text: #ffd9dc;
-  --toast-danger-border: rgba(255, 255, 255, .12);
+  --toast-bg: rgba(58, 78, 66, .88);
+  --toast-text: #e9f6ee;
+  --toast-border: rgba(255, 255, 255, .14);
+  --toast-danger-bg: rgba(88, 46, 51, .9);
+  --toast-danger-text: #ffe2e4;
+  --toast-danger-border: rgba(255, 255, 255, .14);
+  --toast-chip-bg: rgba(255, 255, 255, .1);
+  --toast-chip-hover: rgba(255, 255, 255, .18);
 
   --overlay: rgba(6, 12, 9, .62);
   --shadow-card: 0 1px 1px rgba(0, 0, 0, .22), 0 12px 32px -18px rgba(0, 0, 0, .6);
@@ -143,7 +147,7 @@
   --shadow-menu: 0 2px 6px rgba(0, 0, 0, .3), 0 30px 74px -18px rgba(0, 0, 0, .75);
   --shadow-dialog: 0 46px 120px -30px rgba(0, 0, 0, .8), 0 14px 36px -20px rgba(0, 0, 0, .6);
   --shadow-dialog-inset: inset 0 1px 0 rgba(255, 255, 255, .08);
-  --shadow-toast: 0 20px 44px -18px rgba(0, 0, 0, .65);
+  --shadow-toast: 0 16px 36px -18px rgba(0, 0, 0, .5);
   --selection-text: #0c1310;
 }
 
@@ -650,7 +654,7 @@ dialog.closing .modal-heading, dialog.closing .modal-body { animation: modal-con
 
 .toast {
   position: fixed;
-  top: 20vh;
+  top: 92px;
   left: 50%;
   z-index: 60;
   display: flex;
@@ -670,9 +674,9 @@ dialog.closing .modal-heading, dialog.closing .modal-body { animation: modal-con
   transform: translateX(-50%);
   animation: toast-in 320ms cubic-bezier(.22, 1, .36, 1) both;
 }
-.toast.error { top: calc(20vh + 62px); color: var(--toast-danger-text); background: var(--toast-danger-bg); border-color: var(--toast-danger-border); }
-.toast button { min-width: 32px; min-height: 32px; padding: 4px; border-radius: 50%; color: inherit; background: rgba(255, 255, 255, .1); }
-.toast button:hover { color: inherit; background: rgba(255, 255, 255, .2); }
+.toast.error { top: 158px; color: var(--toast-danger-text); background: var(--toast-danger-bg); border-color: var(--toast-danger-border); }
+.toast button { min-width: 32px; min-height: 32px; padding: 4px; border-radius: 50%; color: inherit; background: var(--toast-chip-bg); }
+.toast button:hover { color: inherit; background: var(--toast-chip-hover); }
 @keyframes toast-in { from { opacity: 0; transform: translateX(-50%) translateY(-14px) scale(.97); } to { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); } }
 
 @keyframes rise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
@@ -770,8 +774,8 @@ dialog.closing .modal-heading, dialog.closing .modal-body { animation: modal-con
   .modal-body { padding: 6px 18px 22px; }
   .name-option { min-height: 42px; font-size: 14px; }
   .modal-actions { margin-top: 22px; }
-  .toast { top: 15vh; padding-left: 18px; font-size: 12.5px; }
-  .toast.error { top: calc(15vh + 58px); }
+  .toast { top: 76px; padding-left: 18px; font-size: 12.5px; }
+  .toast.error { top: 136px; }
 }
 
 @media (hover: none) {
