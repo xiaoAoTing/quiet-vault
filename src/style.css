@@ -644,7 +644,7 @@ dialog.closing .modal-heading, dialog.closing .modal-body { animation: modal-con
 
 .toast {
   position: fixed;
-  bottom: 26px;
+  top: 20vh;
   left: 50%;
   z-index: 60;
   display: flex;
@@ -664,10 +664,10 @@ dialog.closing .modal-heading, dialog.closing .modal-body { animation: modal-con
   transform: translateX(-50%);
   animation: toast-in 320ms cubic-bezier(.22, 1, .36, 1) both;
 }
-.toast.error { bottom: 92px; color: var(--toast-danger-text); background: var(--toast-danger-bg); border-color: var(--toast-danger-border); }
+.toast.error { top: calc(20vh + 62px); color: var(--toast-danger-text); background: var(--toast-danger-bg); border-color: var(--toast-danger-border); }
 .toast button { min-width: 32px; min-height: 32px; padding: 4px; border-radius: 50%; color: inherit; background: rgba(255, 255, 255, .1); }
 .toast button:hover { color: inherit; background: rgba(255, 255, 255, .2); }
-@keyframes toast-in { from { opacity: 0; transform: translateX(-50%) translateY(14px) scale(.97); } to { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); } }
+@keyframes toast-in { from { opacity: 0; transform: translateX(-50%) translateY(-14px) scale(.97); } to { opacity: 1; transform: translateX(-50%) translateY(0) scale(1); } }
 
 @keyframes rise { from { opacity: 0; transform: translateY(16px); } to { opacity: 1; transform: translateY(0); } }
 @keyframes settle { from { opacity: 0; transform: translateY(-10px); } to { opacity: 1; transform: translateY(0); } }
@@ -764,8 +764,8 @@ dialog.closing .modal-heading, dialog.closing .modal-body { animation: modal-con
   .modal-body { padding: 6px 18px 22px; }
   .name-option { min-height: 42px; font-size: 14px; }
   .modal-actions { margin-top: 22px; }
-  .toast { bottom: 18px; padding-left: 18px; font-size: 12.5px; }
-  .toast.error { bottom: 86px; }
+  .toast { top: 15vh; padding-left: 18px; font-size: 12.5px; }
+  .toast.error { top: calc(15vh + 58px); }
 }
 
 @media (hover: none) {
