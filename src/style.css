@@ -615,6 +615,10 @@ dialog.closing .modal-heading, dialog.closing .modal-body { animation: modal-con
 .category-list button { width: 36px; min-width: 36px; min-height: 36px; padding: 0; border-radius: 50%; background: transparent; }
 .category-list button:hover { background: var(--chip-hover); }
 .category-list button.danger:hover { background: var(--danger-soft); }
+.category-list-empty { margin-top: 22px; padding: 22px 16px; border-radius: 14px; color: var(--muted); font-size: 13px; text-align: center; background: var(--chip); }
+.category-list-actions { display: flex; justify-content: flex-end; margin-top: 18px; }
+.category-list-actions .primary { min-height: 44px; padding-inline: 22px; }
+.modal-compact { max-width: 440px; }
 .field-label { margin: 20px 0 8px; color: var(--label); font-size: 13px; font-weight: 600; }
 .category-field { display: flex; flex-wrap: wrap; gap: 7px; max-height: 136px; padding: 2px; overflow-y: auto; }
 .category-chip { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 5px 13px; border-radius: 999px; color: var(--muted); font-size: 12.5px; background: var(--chip); }

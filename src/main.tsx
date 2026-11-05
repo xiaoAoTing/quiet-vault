@@ -51,9 +51,8 @@ function App() {
   const [categoryQuery, setCategoryQuery] = useState('');
   const [editor, setEditor] = useState<Entry | null>(null);
   const [categoriesOpen, setCategoriesOpen] = useState(false);
-  const [categoryName, setCategoryName] = useState('');
-  const [categoryId, setCategoryId] = useState('');
-  const [categoryIcon, setCategoryIcon] = useState(DEFAULT_CATEGORY_ICON);
+  // 分类编辑器独立于「管理分类」列表：id 为空表示新建，否则编辑对应分类。
+  const [categoryEditor, setCategoryEditor] = useState<{ id?: string; name: string; icon: string } | null>(null);
   const [revealed, setRevealed] = useState(false);
   // 行内归类：ids 为一次要改分类的条目，anchor 是触发按钮，菜单贴着它展开。
   const [menu, setMenu] = useState<{ ids: string[]; current?: string; anchor: HTMLElement } | null>(null);
@@ -71,7 +70,7 @@ function App() {
   function toggleTheme() { setTheme(value => value === 'dark' ? 'light' : 'dark'); }
   function clearSession() {
     generation.current++;
-    assign(null); setEditor(null); setCategoriesOpen(false); setPassword(''); setConfirmPassword(''); setRevealed(false); setQuery(''); setCategoryQuery(''); setCategoryName(''); setCategoryId(''); setCategoryIcon(DEFAULT_CATEGORY_ICON); setPending(null); setFilter('*'); setView('vault');
+    assign(null); setEditor(null); setCategoriesOpen(false); setPassword(''); setConfirmPassword(''); setRevealed(false); setQuery(''); setCategoryQuery(''); setCategoryEditor(null); setPending(null); setFilter('*'); setView('vault');
     setMenu(null); setSelecting(false); setSelectedIds(new Set()); setNewCategory('');
   }
   function changeFilter(value: string) {
@@ -348,14 +347,22 @@ function App() {
       </form>
       )}
     </Modal>}
-    {categoriesOpen && vault && <Modal error={error} title="管理分类" icon={<Folder size={18}/>} close={()=>{setCategoriesOpen(false);setCategoryName('');setCategoryId('');setCategoryIcon(DEFAULT_CATEGORY_ICON);}} disabled={busy}>
-      <p className="muted">为分类选一个图标，删除分类时密码条目将移至「未分类」。</p>
-      <form className="category-form" onSubmit={e=>{e.preventDefault();const name=categoryName.trim();if(!name)return;if(vault.categories.some(c=>c.id!==categoryId&&c.name.toLocaleLowerCase()===name.toLocaleLowerCase())){setError('分类名称已存在');return;}void save({...vault,categories:categoryId?vault.categories.map(c=>c.id===categoryId?{...c,name,icon:categoryIcon}:c):[...vault.categories,{id:crypto.randomUUID(),name,icon:categoryIcon}]},()=>{setCategoryName('');setCategoryId('');setCategoryIcon(DEFAULT_CATEGORY_ICON);});}}>
-        <label>{categoryId?'编辑分类名称':'新分类名称'}<input required maxLength={60} value={categoryName} onChange={e=>setCategoryName(e.target.value)}/></label>
-        <IconPicker value={categoryIcon} onChange={setCategoryIcon}/>
-        <div className="category-form-actions"><button className="primary" disabled={busy}>{categoryId?'保存分类':'添加分类'}</button>{categoryId&&<button type="button" onClick={()=>{setCategoryId('');setCategoryName('');setCategoryIcon(DEFAULT_CATEGORY_ICON);}}>取消编辑</button>}</div>
+    {categoriesOpen && vault && <Modal error={error} title="管理分类" icon={<Folder size={18}/>} close={()=>{setCategoriesOpen(false);setCategoryQuery('');}} disabled={busy}>
+      <p className="muted">编辑或删除已有分类。删除分类时，其中的密码会移至「未分类」。</p>
+      {vault.categories.length > 0 && <label>查找分类<input value={categoryQuery} onChange={e=>setCategoryQuery(e.target.value)} placeholder="输入分类名称…"/></label>}
+      {vault.categories.length > 0 && <div className="category-list">{vault.categories.filter(c=>c.name.toLocaleLowerCase().includes(categoryQuery.trim().toLocaleLowerCase())).map(c=><div key={c.id}><CategoryIcon icon={c.icon} size={17}/><span>{c.name}</span><button aria-label={`编辑分类 ${c.name}`} disabled={busy} onClick={()=>setCategoryEditor({id:c.id,name:c.name,icon:c.icon ?? DEFAULT_CATEGORY_ICON})}><Pencil size={17}/></button><button className="danger" aria-label={`删除分类 ${c.name}`} disabled={busy} onClick={()=>{if(confirm(`删除分类「${c.name}」？条目将移至未分类。`))void save({categories:vault.categories.filter(x=>x.id!==c.id),entries:vault.entries.map(e=>e.categoryId===c.id?{...e,categoryId:''}:e)},()=>{if(filter===c.id)changeFilter('');});}}><Trash2 size={17}/></button></div>)}</div>}
+      {vault.categories.length > 0 && !vault.categories.some(c=>c.name.toLocaleLowerCase().includes(categoryQuery.trim().toLocaleLowerCase())) && <p className="category-list-empty">没有匹配的分类。</p>}
+      {!vault.categories.length && <p className="category-list-empty">还没有分类。新建一个，把密码分门别类。</p>}
+      <div className="category-list-actions"><button type="button" className="primary" disabled={busy} onClick={()=>setCategoryEditor({name:'',icon:DEFAULT_CATEGORY_ICON})}><Plus size={17}/>新建分类</button></div>
+    </Modal>}
+    {categoryEditor && vault && <Modal error={error} className="modal-compact" title={categoryEditor.id ? '编辑分类' : '新建分类'} icon={categoryEditor.id ? <Pencil size={18}/> : <Folder size={18}/>} close={()=>setCategoryEditor(null)} disabled={busy}>
+      {requestClose => (
+      <form className="category-form" onSubmit={e=>{e.preventDefault();const name=categoryEditor.name.trim();if(!name)return;if(vault.categories.some(c=>c.id!==categoryEditor.id&&c.name.toLocaleLowerCase()===name.toLocaleLowerCase())){setError('分类名称已存在');return;}void save({...vault,categories:categoryEditor.id?vault.categories.map(c=>c.id===categoryEditor.id?{...c,name,icon:categoryEditor.icon}:c):[...vault.categories,{id:crypto.randomUUID(),name,icon:categoryEditor.icon}]},requestClose);}}>
+        <label>分类名称<input autoFocus required maxLength={60} value={categoryEditor.name} onChange={e=>setCategoryEditor({...categoryEditor,name:e.target.value})}/></label>
+        <IconPicker value={categoryEditor.icon} onChange={icon=>setCategoryEditor({...categoryEditor,icon})}/>
+        <div className="category-form-actions"><button type="button" onClick={requestClose}>取消</button><button className="primary" disabled={busy}>{categoryEditor.id?'保存修改':'创建分类'}</button></div>
       </form>
-      <label>查找分类<input value={categoryQuery} onChange={e=>setCategoryQuery(e.target.value)} placeholder="输入分类名称…"/></label><div className="category-list">{vault.categories.filter(c=>c.name.toLocaleLowerCase().includes(categoryQuery.toLocaleLowerCase())).map(c=><div key={c.id}><CategoryIcon icon={c.icon} size={17}/><span>{c.name}</span><button aria-label={`编辑分类 ${c.name}`} disabled={busy} onClick={()=>{setCategoryName(c.name);setCategoryId(c.id);setCategoryIcon(c.icon ?? DEFAULT_CATEGORY_ICON);}}><Pencil size={17}/></button><button className="danger" aria-label={`删除分类 ${c.name}`} disabled={busy} onClick={()=>{if(confirm(`删除分类「${c.name}」？条目将移至未分类。`))void save({categories:vault.categories.filter(x=>x.id!==c.id),entries:vault.entries.map(e=>e.categoryId===c.id?{...e,categoryId:''}:e)},()=>{if(filter===c.id)changeFilter('');if(categoryId===c.id){setCategoryId('');setCategoryName('');setCategoryIcon(DEFAULT_CATEGORY_ICON);}});}}><Trash2 size={17}/></button></div>)}</div>
+      )}
     </Modal>}
     {menu && vault && <CategoryMenu anchor={menu.anchor} current={menu.current} categories={vault.categories} onPick={id=>void assignCategory(menu.ids,id)} onCreate={name=>void assignCategory(menu.ids,'',name)} onClose={()=>setMenu(null)}/>}
     {error && <div className="toast error" role="alert"><span>{error}</span><button aria-label="关闭错误" onClick={()=>setError('')}><X size={18}/></button></div>}
@@ -512,7 +519,7 @@ function IconPicker({value,onChange}:{value:string;onChange:(icon:string)=>void}
     {!options.length && <p className="icon-empty">没有匹配的图标，试试英文名称。</p>}
   </div>;
 }
-function Modal({title,icon,close,disabled,children,error}:{title:string;icon?:React.ReactNode;close:()=>void;disabled:boolean;children:React.ReactNode|((requestClose:()=>void)=>React.ReactNode);error:string}) {
+function Modal({title,icon,close,disabled,children,error,className}:{title:string;icon?:React.ReactNode;close:()=>void;disabled:boolean;children:React.ReactNode|((requestClose:()=>void)=>React.ReactNode);error:string;className?:string}) {
   const ref = useRef<HTMLDialogElement>(null);
   const [closing, setClosing] = useState(false);
   const closingRef = useRef(false);
@@ -538,7 +545,7 @@ function Modal({title,icon,close,disabled,children,error}:{title:string;icon?:Re
     const timer = window.setTimeout(finish, 220);
     return () => clearTimeout(timer);
   }, [closing]);
-  return <dialog ref={ref} className={closing ? 'closing' : undefined} onCancel={e=>{e.preventDefault();if(!disabledRef.current)requestClose();}} onPointerDown={e=>{
+  return <dialog ref={ref} className={[className, closing ? 'closing' : ''].filter(Boolean).join(' ') || undefined} onCancel={e=>{e.preventDefault();if(!disabledRef.current)requestClose();}} onPointerDown={e=>{
     if (e.target !== e.currentTarget || disabledRef.current) return;
     const box = e.currentTarget.getBoundingClientRect();
     if (e.clientX < box.left || e.clientX > box.right || e.clientY < box.top || e.clientY > box.bottom) requestClose();
