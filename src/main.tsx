@@ -348,7 +348,7 @@ function App() {
         <div className="security-note"><ShieldCheck size={18}/><span>Argon2id + AES-256-GCM · 仅在你的浏览器中解密</span></div>
       </section><p className="gate-foot">请牢记主密码。我们无法找回或重置它。<br/>浏览器存储不是备份，请定期导出加密文件。</p>
     </main> : <div className="app-shell">
-      <header className="app-header"><div className="brand-block"><a className="brand" href="#"><ShieldCheck/><span>Quiet Vault<span className="brand-dot">.</span></span></a><div className="workspace-label">个人空间 <span>LOCAL</span></div></div><div className="header-actions"><ThemeToggle theme={theme} onToggle={toggleTheme}/><button onClick={lock} disabled={busy}><LockKeyhole size={16}/>锁定</button></div></header>
+      <header className="app-header"><div className="brand-block"><a className="brand" href="#"><ShieldCheck/><span>Quiet Vault<span className="brand-dot">.</span></span></a><div className="workspace-label">个人保险库 <span>LOCAL</span></div></div><div className="header-actions"><ThemeToggle theme={theme} onToggle={toggleTheme}/><button onClick={lock} disabled={busy}><LockKeyhole size={16}/>锁定</button></div></header>
       <div className="app-body">
       <aside className="sidebar" aria-label="分类导航">
         <p className="sidebar-title">分类</p>
