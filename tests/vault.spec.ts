@@ -199,7 +199,7 @@ test('keeps the vault unlocked when the page is hidden', async ({page}) => {
   });
   await expect(page.getByRole('button',{name:'新增密码',exact:true})).toBeVisible();
 });
-test('copies name, account and password from the entry list', async ({page, context}) => {
+test('copies name, account, password and notes from the entry list', async ({page, context}) => {
   await context.grantPermissions(['clipboard-read','clipboard-write']);
   await page.goto('/');
   await page.getByLabel('主密码',{exact:true}).fill(master);
@@ -210,16 +210,17 @@ test('copies name, account and password from the entry list', async ({page, cont
   await page.getByLabel('名称',{exact:true}).fill('备用邮箱');
   await page.getByLabel('账号',{exact:true}).fill('alice@example.com');
   await page.getByLabel('密码',{exact:true}).fill('secret-entry-password');
+  await page.getByLabel('备注（非必填）').fill('备用邮箱的恢复码');
   await page.getByRole('button',{name:'加密保存'}).click();
   await expect(page.getByRole('button',{name:'编辑 备用邮箱',exact:true})).toBeVisible();
-  await page.getByRole('button',{name:'复制 备用邮箱 的名称、账号和密码'}).click();
+  await page.getByRole('button',{name:'复制 备用邮箱 的名称、账号、密码和备注'}).click();
   await expect(page.getByRole('status')).toContainText('已复制');
-  expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe('名称：备用邮箱\n账号：alice@example.com\n密码：secret-entry-password');
+  expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe('名称：备用邮箱\n账号：alice@example.com\n密码：secret-entry-password\n备注：备用邮箱的恢复码');
   // 空名称与空账号不产生多余标签行
   await page.getByRole('button',{name:'新增密码',exact:true}).click();
   await page.getByLabel('密码',{exact:true}).fill('only-password');
   await page.getByRole('button',{name:'加密保存'}).click();
-  await page.getByRole('button',{name:'复制 未命名条目 的名称、账号和密码'}).click();
+  await page.getByRole('button',{name:'复制 未命名条目 的名称、账号、密码和备注'}).click();
   expect(await page.evaluate(()=>navigator.clipboard.readText())).toBe('密码：only-password');
 });
 test('accepts .json backups and does not restrict the picker on iOS', async ({page}, testInfo) => {
@@ -308,7 +309,7 @@ test('stores an optional note per entry and keeps it across reload', async ({pag
   await page.getByRole('button',{name:'新增密码',exact:true}).click();
   await page.getByLabel('密码',{exact:true}).fill('only-password');
   await page.getByRole('button',{name:'加密保存'}).click();
-  await expect(page.getByRole('button',{name:'复制 未命名条目 的名称、账号和密码'})).toBeVisible();
+  await expect(page.getByRole('button',{name:'复制 未命名条目 的名称、账号、密码和备注'})).toBeVisible();
 });
 test('requires a strong master password when creating a vault', async ({page}) => {
   await page.goto('/');
