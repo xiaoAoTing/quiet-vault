@@ -108,6 +108,12 @@ test('hiding during key derivation cancels unlock', async ({page}) => {
   await expect(page.getByRole('heading',{name:'欢迎回来'})).toBeVisible();
   await expect(page.getByRole('heading',{name:/所有密码/})).toHaveCount(0);
 });
+test('does not restrict the file picker by extension on iOS', async ({page}, testInfo) => {
+  await page.goto('/');
+  const accept = await page.locator('input[type=file]').getAttribute('accept');
+  if (testInfo.project.name === 'mobile') expect(accept).toBeNull();
+  else expect(accept).toContain('.qvault');
+});
 test('requires a strong master password when creating a vault', async ({page}) => {
   await page.goto('/');
   const password = page.getByLabel('主密码',{exact:true});

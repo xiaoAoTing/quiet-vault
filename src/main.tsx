@@ -5,6 +5,8 @@ import { createVault, openVault, parseEnvelope, seal, masterPasswordProblem, MAX
 import './style.css';
 const STORAGE = 'quiet-vault.v1';
 const THEME_KEY = 'quiet-vault.theme';
+// iOS document pickers filter by UTI and disable files with unregistered extensions like .qvault.
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 type Session = { key: CryptoKey; vault: Vault; envelope: Envelope };
 type Theme = 'light' | 'dark';
 function readTheme(): Theme {
@@ -143,7 +145,7 @@ function App() {
   const entries = vault?.entries.filter(e => (filter === '*' || e.categoryId === filter) && [e.title,e.username,e.url,e.notes,vault.categories.find(c=>c.id===e.categoryId)?.name ?? '未分类'].join(' ').toLocaleLowerCase().includes(query.toLocaleLowerCase())) ?? [];
   const categoryMatches = vault?.categories.filter(c=>c.name.toLocaleLowerCase().includes(categoryQuery.toLocaleLowerCase())) ?? [];
   return <>
-    <input ref={fileRef} type="file" accept=".qvault,.json,application/json" hidden onChange={e => { void importFile(e.target.files?.[0]); e.target.value = ''; }}/>
+    <input ref={fileRef} type="file" accept={isIOS ? undefined : '.qvault,.json,application/json'} hidden onChange={e => { void importFile(e.target.files?.[0]); e.target.value = ''; }}/>
     {!session ? <main className="gate">
       <div className="gate-top"><div className="gate-brand"><ShieldCheck size={30}/><span>quiet vault<span className="brand-dot">.</span></span></div><ThemeToggle theme={theme} onToggle={toggleTheme}/></div>
       <section className="gate-card"><div className="lock-emblem"><LockKeyhole size={30}/></div><p className="eyebrow">YOUR PASSWORDS. YOUR CONTROL.</p>
