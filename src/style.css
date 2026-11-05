@@ -387,8 +387,8 @@ a.brand:hover { color: var(--accent); }
 .list-head { display: flex; justify-content: space-between; align-items: center; gap: 16px; margin: 0 4px 20px; animation: rise 520ms cubic-bezier(.22, 1, .36, 1) 40ms both; }
 .breadcrumb { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin: 0; font-size: 11.5px; color: var(--faint); letter-spacing: .01em; }
 .breadcrumb span { color: var(--faint); opacity: .6; padding: 0 8px; }
-.list-head .primary { gap: 7px; min-height: 44px; padding: 0 20px; font-size: 14px; white-space: nowrap; flex-shrink: 0; }
-.list-head .primary svg { width: 16px; height: 16px; }
+.list-head .primary { gap: 6px; min-height: 38px; padding: 0 16px; font-size: 13px; white-space: nowrap; flex-shrink: 0; }
+.list-head .primary svg { width: 15px; height: 15px; }
 
 .toolbar { display: flex; justify-content: space-between; align-items: center; gap: 14px; margin-bottom: 18px; animation: rise 560ms cubic-bezier(.22, 1, .36, 1) 120ms both; }
 .search {
