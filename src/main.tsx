@@ -16,6 +16,8 @@ const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platfor
 const supportsTextSecurity = typeof CSS !== 'undefined' && CSS.supports('-webkit-text-security', 'disc');
 type Session = { key: CryptoKey; vault: Vault; envelope: Envelope };
 type Theme = 'light' | 'dark';
+type CategoryDrag = { id: string; pointerId: number; startX: number; startY: number; active: boolean; timer: number | null };
+type CategorySort = { id: string | null; order: string[] };
 function readTheme(): Theme {
   try { return localStorage.getItem(THEME_KEY) === 'dark' ? 'dark' : 'light'; } catch { return 'light'; }
 }
@@ -35,6 +37,16 @@ function entryClipboard(entry: Entry) {
 function dropCategoryAt(x: number, y: number): string | null {
   const target = document.elementFromPoint(x, y)?.closest<HTMLElement>('[data-category-drop]');
   return target ? target.getAttribute('data-category-drop') ?? '' : null;
+}
+// 分类排序按元素布局矩形命中，浮层（例如提示条）盖住侧边栏时也不会丢失落点。
+function categoryAtPoint(nav: HTMLElement, x: number, y: number): HTMLElement | null {
+  const navBox = nav.getBoundingClientRect();
+  if (x < navBox.left || x > navBox.right || y < navBox.top || y > navBox.bottom) return null;
+  for (const item of nav.querySelectorAll<HTMLElement>('[data-category-id]')) {
+    const box = item.getBoundingClientRect();
+    if (x >= box.left && x <= box.right && y >= box.top && y <= box.bottom) return item;
+  }
+  return null;
 }
 // 备份文件名用设备本地时间，避免 UTC 造成的日期/时刻偏差。
 function localStamp(date = new Date()) {
@@ -71,6 +83,12 @@ function App() {
   const ghostRef = useRef<HTMLDivElement>(null);
   const ghostSize = useRef({ width: 0, height: 0 });
   const [drag, setDrag] = useState<{ id: string; label: string; over: string | null } | null>(null);
+  // 分类排序：拖动侧边栏分类调整顺序，实时预览新顺序，松手后随保险库一起加密保存。
+  const categoryNavRef = useRef<HTMLElement>(null);
+  const categoryDragSession = useRef<CategoryDrag | null>(null);
+  const categorySortRef = useRef<CategorySort | null>(null);
+  const [categorySort, setCategorySort] = useState<CategorySort | null>(null);
+  const categoryClickBlockedUntil = useRef(0);
   const [newCategory, setNewCategory] = useState('');
   const [startupError, setStartupError] = useState(false);
   const [restoring, setRestoring] = useState(true);
@@ -86,6 +104,8 @@ function App() {
     assign(null); setEditor(null); setCategoriesOpen(false); setPassword(''); setConfirmPassword(''); setRevealed(false); setQuery(''); setCategoryQuery(''); setCategoryEditor(null); setPending(null); setFilter('*'); setView('vault');
     setMenu(null); setSelecting(false); setSelectedIds(new Set()); setNewCategory('');
     dragSession.current = null; setDrag(null); document.body.classList.remove('entry-dragging');
+    if (categoryDragSession.current?.timer != null) clearTimeout(categoryDragSession.current.timer);
+    categoryDragSession.current = null; categorySortRef.current = null; setCategorySort(null); document.body.classList.remove('category-sorting');
   }
   function changeFilter(value: string) {
     setFilter(value); setView('vault'); setMenu(null); setSelecting(false); setSelectedIds(new Set());
@@ -176,6 +196,12 @@ function App() {
     return () => document.removeEventListener('keydown', shortcut);
   }, []);
   useEffect(() => { if (!editor) entrySaveRef.current = null; }, [editor]);
+  // 触屏长按进入排序后，阻止页面跟随手指滚动；未进入排序时保持正常滚动。
+  useEffect(() => {
+    const block = (event: TouchEvent) => { if (categoryDragSession.current?.active) event.preventDefault(); };
+    document.addEventListener('touchmove', block, { passive: false });
+    return () => document.removeEventListener('touchmove', block);
+  }, []);
   // 浮层在拖拽开始时才挂载，这里补一次初始位置，之后的移动直接改 transform 避免整页重渲染。
   useLayoutEffect(() => {
     if (!drag || !ghostRef.current) return;
@@ -221,13 +247,15 @@ function App() {
       if (await persist(next, token)) { setPending(null); setPassword(''); setConfirmPassword(''); setNotice(target ? '保险库已解锁' : '保险库已创建并加密保存'); }
     });
   }
-  async function save(vault: Vault, done?: () => void) {
+  async function save(vault: Vault, done?: () => void, settle?: () => void) {
     const current = sessionRef.current;
-    if (!current) return;
-    await run(async token => {
-      const envelope = await seal(vault, current.key, current.envelope.salt);
-      if (await persist({ ...current, vault, envelope }, token)) { done?.(); setNotice('已加密保存到此浏览器'); }
-    });
+    if (!current) { settle?.(); return; }
+    try {
+      await run(async token => {
+        const envelope = await seal(vault, current.key, current.envelope.salt);
+        if (await persist({ ...current, vault, envelope }, token)) { done?.(); setNotice('已加密保存到此浏览器'); }
+      });
+    } finally { settle?.(); }
   }
   // 行内归类：一次可作用于单条或批量选中的多条，允许顺手创建新分类。
   async function assignCategory(ids: string[], categoryId: string, newName?: string) {
@@ -301,6 +329,83 @@ function App() {
     }
     void assignCategory([session.id], target);
   }
+  // 分类排序：鼠标移动超过阈值即进入拖拽，触屏需要长按，避免与滚动冲突。
+  function applyCategorySort(next: CategorySort | null) {
+    categorySortRef.current = next;
+    setCategorySort(next);
+  }
+  function activateCategorySort(session: CategoryDrag) {
+    const current = sessionRef.current;
+    if (!current) return;
+    session.active = true;
+    document.body.classList.add('category-sorting');
+    applyCategorySort({ id: session.id, order: current.vault.categories.map(category => category.id) });
+  }
+  function startCategoryDrag(event: React.PointerEvent<HTMLElement>, id: string) {
+    if (event.button !== 0 || busyRef.current || categoryDragSession.current) return;
+    const session: CategoryDrag = { id, pointerId: event.pointerId, startX: event.clientX, startY: event.clientY, active: false, timer: null };
+    categoryDragSession.current = session;
+    event.currentTarget.setPointerCapture(event.pointerId);
+    if (event.pointerType === 'touch') {
+      session.timer = window.setTimeout(() => {
+        if (categoryDragSession.current === session) activateCategorySort(session);
+      }, 320);
+    }
+  }
+  function moveCategoryDrag(event: React.PointerEvent<HTMLElement>) {
+    const session = categoryDragSession.current;
+    if (!session || session.pointerId !== event.pointerId) return;
+    if (!session.active) {
+      const threshold = event.pointerType === 'touch' ? 8 : 5;
+      if (Math.hypot(event.clientX - session.startX, event.clientY - session.startY) < threshold) return;
+      if (event.pointerType === 'touch') {
+        // 长按尚未成立：把这次手势交还给滚动。
+        if (session.timer !== null) clearTimeout(session.timer);
+        categoryDragSession.current = null;
+        return;
+      }
+      activateCategorySort(session);
+    }
+    event.preventDefault();
+    const nav = categoryNavRef.current;
+    const target = nav ? categoryAtPoint(nav, event.clientX, event.clientY) : null;
+    const targetId = target?.getAttribute('data-category-id');
+    if (!nav || !target || !targetId || targetId === session.id) return;
+    const box = target.getBoundingClientRect();
+    const horizontal = getComputedStyle(nav).flexDirection === 'row';
+    const after = horizontal ? event.clientX > box.left + box.width / 2 : event.clientY > box.top + box.height / 2;
+    const sort = categorySortRef.current;
+    if (!sort) return;
+    const order = sort.order.filter(categoryId => categoryId !== session.id);
+    const index = order.indexOf(targetId);
+    if (index < 0) return;
+    order.splice(index + (after ? 1 : 0), 0, session.id);
+    if (order.every((categoryId, position) => categoryId === sort.order[position])) return;
+    applyCategorySort({ ...sort, order });
+  }
+  function finishCategoryDrag(event: React.PointerEvent<HTMLElement>, cancelled = false) {
+    const session = categoryDragSession.current;
+    if (!session || session.pointerId !== event.pointerId) return;
+    if (session.timer !== null) clearTimeout(session.timer);
+    categoryDragSession.current = null;
+    document.body.classList.remove('category-sorting');
+    const sort = categorySortRef.current;
+    if (!session.active) { applyCategorySort(null); return; }
+    // 拖拽结束后短时间内不响应分类点击，避免落点后的合成 click 切换当前分类。
+    categoryClickBlockedUntil.current = performance.now() + 300;
+    if (cancelled || !sort) { applyCategorySort(null); return; }
+    const current = sessionRef.current;
+    if (!current) { applyCategorySort(null); return; }
+    const byId = new Map(current.vault.categories.map(category => [category.id, category] as const));
+    const categories = sort.order.map(categoryId => byId.get(categoryId)).filter((category): category is Category => Boolean(category));
+    if (categories.length !== current.vault.categories.length || categories.every((category, index) => category.id === current.vault.categories[index].id)) {
+      applyCategorySort(null);
+      return;
+    }
+    // 保留预览顺序直到加密保存完成，避免落点后顺序闪回旧值。
+    applyCategorySort({ id: null, order: categories.map(category => category.id) });
+    void save({ ...current.vault, categories }, undefined, () => applyCategorySort(null));
+  }
   async function createCategoryInline(name: string, apply: (id: string) => void) {
     const current = sessionRef.current;
     if (!current) return;
@@ -330,6 +435,12 @@ function App() {
   }
   async function copy(value: string) { try { await navigator.clipboard.writeText(value); setNotice('已复制。使用后请清理剪贴板'); } catch { setError('无法访问剪贴板，请显示后手动复制'); } }
   const vault = session?.vault;
+  // 拖拽排序时按预览顺序渲染，未找到的分类（例如其他标签页同步）仍保留在末尾。
+  const orderedCategories = vault
+    ? categorySort
+      ? [...categorySort.order.map(id => vault.categories.find(category => category.id === id)), ...vault.categories.filter(category => !categorySort.order.includes(category.id))].filter((category): category is Category => Boolean(category))
+      : vault.categories
+    : [];
   const selected = filter === '*' ? '所有密码' : filter === '' ? '未分类' : vault?.categories.find(c => c.id === filter)?.name ?? '所有密码';
   const entries = vault?.entries.filter(e => (filter === '*' || e.categoryId === filter) && [e.name,e.username,vault.categories.find(c=>c.id===e.categoryId)?.name ?? '未分类'].join(' ').toLocaleLowerCase().includes(query.toLocaleLowerCase())) ?? [];
   const nameOptions = vault && editor ? uniqueEntryNames(vault.entries, editor.id) : [];
@@ -351,10 +462,10 @@ function App() {
       <header className="app-header"><div className="brand-block"><a className="brand" href="#"><ShieldCheck/><span>Quiet Vault<span className="brand-dot">.</span></span></a><div className="workspace-label">个人保险库 <span>LOCAL</span></div></div><div className="header-actions"><ThemeToggle theme={theme} onToggle={toggleTheme}/><button onClick={lock} disabled={busy}><LockKeyhole size={16}/>锁定</button></div></header>
       <div className="app-body">
       <aside className="sidebar" aria-label="分类导航">
-        <p className="sidebar-title">分类</p>
-        <nav className="category-nav" aria-label="分类">
+        <p className="sidebar-title">分类{vault!.categories.length > 1 && <span className="sidebar-title-hint">拖动排序</span>}</p>
+        <nav className="category-nav" aria-label="分类" ref={categoryNavRef}>
           <button type="button" className={filter==='*'&&view==='vault'?'nav-item active':'nav-item'} aria-current={filter==='*'&&view==='vault'?'page':undefined} onClick={()=>changeFilter('*')}><KeyRound size={16}/><span className="nav-name">所有密码</span><span className="nav-count">{vault!.entries.length}</span></button>
-          {vault!.categories.map(c=><button type="button" data-category-drop={c.id} className={(filter===c.id&&view==='vault'?'nav-item active':'nav-item')+dropClass(c.id)} aria-current={filter===c.id&&view==='vault'?'page':undefined} key={c.id} onClick={()=>changeFilter(c.id)}><CategoryIcon icon={c.icon} size={16}/><span className="nav-name">{c.name}</span><span className="nav-count">{vault!.entries.filter(e=>e.categoryId===c.id).length}</span></button>)}
+          {orderedCategories.map(c=><button type="button" data-category-drop={c.id} data-category-id={c.id} className={(filter===c.id&&view==='vault'?'nav-item active':'nav-item')+dropClass(c.id)+(categorySort?.id===c.id?' sorting':'')} aria-current={filter===c.id&&view==='vault'?'page':undefined} key={c.id} onPointerDown={ev=>startCategoryDrag(ev,c.id)} onPointerMove={moveCategoryDrag} onPointerUp={ev=>finishCategoryDrag(ev)} onPointerCancel={ev=>finishCategoryDrag(ev,true)} onLostPointerCapture={ev=>finishCategoryDrag(ev,true)} onContextMenu={ev=>{if(categoryDragSession.current)ev.preventDefault();}} onClick={()=>{if(performance.now()<categoryClickBlockedUntil.current)return;changeFilter(c.id);}}><CategoryIcon icon={c.icon} size={16}/><span className="nav-name">{c.name}</span><span className="nav-count">{vault!.entries.filter(e=>e.categoryId===c.id).length}</span></button>)}
           <button type="button" data-category-drop="" className={(filter===''&&view==='vault'?'nav-item active':'nav-item')+dropClass('')} aria-current={filter===''&&view==='vault'?'page':undefined} onClick={()=>changeFilter('')}><Folder size={16}/><span className="nav-name">未分类</span><span className="nav-count">{vault!.entries.filter(e=>!e.categoryId).length}</span></button>
         </nav>
         <div className="sidebar-tools">
@@ -427,7 +538,7 @@ function App() {
       }}
     </Modal>}
     {categoriesOpen && vault && <Modal error={error} title="管理分类" icon={<Folder size={18}/>} close={()=>{setCategoriesOpen(false);setCategoryQuery('');}} disabled={busy}>
-      <p className="muted">编辑或删除已有分类。删除分类时，其中的密码会移至「未分类」。</p>
+      <p className="muted">编辑或删除已有分类。删除分类时，其中的密码会移至「未分类」。在侧边栏拖动分类可调整顺序，触屏长按后拖动。</p>
       {vault.categories.length > 0 && <label>查找分类<input value={categoryQuery} onChange={e=>setCategoryQuery(e.target.value)} placeholder="输入分类名称…"/></label>}
       {vault.categories.length > 0 && <div className="category-list">{vault.categories.filter(c=>c.name.toLocaleLowerCase().includes(categoryQuery.trim().toLocaleLowerCase())).map(c=><div key={c.id}><CategoryIcon icon={c.icon} size={17}/><span>{c.name}</span><button aria-label={`编辑分类 ${c.name}`} disabled={busy} onClick={()=>setCategoryEditor({id:c.id,name:c.name,icon:c.icon ?? DEFAULT_CATEGORY_ICON})}><Pencil size={17}/></button><button className="danger" aria-label={`删除分类 ${c.name}`} disabled={busy} onClick={()=>{if(confirm(`删除分类「${c.name}」？条目将移至未分类。`))void save({categories:vault.categories.filter(x=>x.id!==c.id),entries:vault.entries.map(e=>e.categoryId===c.id?{...e,categoryId:''}:e)},()=>{if(filter===c.id)changeFilter('');});}}><Trash2 size={17}/></button></div>)}</div>}
       {vault.categories.length > 0 && !vault.categories.some(c=>c.name.toLocaleLowerCase().includes(categoryQuery.trim().toLocaleLowerCase())) && <p className="category-list-empty">没有匹配的分类。</p>}
@@ -470,7 +581,7 @@ function AboutPage() {
       <h2>怎么用</h2>
       <ol className="about-steps">
         <li><div><strong>新增与编辑</strong><span>点击「新增密码」填写名称、账号和密码，可同时选择分类；点条目即可修改，删除也在编辑窗口里。</span></div></li>
-        <li><div><strong>搜索与分类</strong><span>顶部搜索框支持名称、账号和分类；拖动条目左侧头像到分类上可快速归类，点条目右侧的分类标签也能修改，「未分类」中还能勾选多条批量归类。</span></div></li>
+        <li><div><strong>搜索与分类</strong><span>顶部搜索框支持名称、账号和分类；拖动条目左侧头像到分类上可快速归类，点条目右侧的分类标签也能修改，「未分类」中还能勾选多条批量归类；侧边栏的分类可以拖动调整顺序，触屏长按后拖动。</span></div></li>
         <li><div><strong>复制信息</strong><span>点复制按钮会一次性复制名称、账号、密码和备注。粘贴使用后，请记得清理剪贴板。</span></div></li>
         <li><div><strong>备份与迁移</strong><span>「导出备份」会下载一份加密文件；换设备或浏览器时用「导入」选择该文件，再输入主密码即可恢复。</span></div></li>
         <li><div><strong>锁定与解锁</strong><span>只有点击「锁定」才会退出。刷新或重新打开页面会自动恢复本机会话；锁定后必须重新输入主密码。</span></div></li>

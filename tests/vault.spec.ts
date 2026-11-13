@@ -173,6 +173,42 @@ test('drags an entry by its left handle onto a category', async ({page}, testInf
   await expect(page.getByRole('button',{name:'修改分类：drag@example.com，当前 未分类'})).toBeVisible();
 });
 
+test('reorders categories by dragging them in the sidebar', async ({page}) => {
+  await page.goto('/');
+  await page.getByLabel('主密码',{exact:true}).fill(master);
+  await page.getByLabel('再次输入主密码').fill(master);
+  await page.getByRole('button',{name:'创建保险库'}).click();
+  await expect(page.getByRole('button',{name:'新增密码',exact:true})).toBeVisible();
+  for (const name of ['工作','个人']) {
+    await page.getByRole('button',{name:'新建分类',exact:true}).click();
+    await page.getByLabel('分类名称').fill(name);
+    await page.getByRole('button',{name:'创建分类',exact:true}).click();
+    await dialogCount(page,0);
+  }
+  const names = () => page.locator('.category-nav .nav-item[data-category-id] .nav-name').allTextContents();
+  await expect.poll(names).toEqual(['工作','个人']);
+  const source = await page.getByRole('button',{name:/^个人/}).boundingBox();
+  const target = await page.getByRole('button',{name:/^工作/}).boundingBox();
+  await page.mouse.move(source!.x + source!.width / 2, source!.y + source!.height / 2);
+  await page.mouse.down();
+  await page.mouse.move(source!.x + source!.width / 2 + 10, source!.y + source!.height / 2 + 10, {steps:3});
+  await expect(page.locator('.nav-item.sorting')).toHaveCount(1);
+  // 落在目标前 1/4，确保插入到目标之前
+  await page.mouse.move(target!.x + target!.width / 4, target!.y + target!.height / 4, {steps:12});
+  await page.mouse.up();
+  await expect.poll(names).toEqual(['个人','工作']);
+  // 拖拽结束不能误触发分类导航，仍停留在「所有密码」
+  await expect(page.locator('.breadcrumb')).toContainText('所有密码');
+  await expect(page.getByRole('status')).toContainText('已加密保存到此浏览器');
+  // 顺序随加密数据持久化
+  await page.reload();
+  await openSidebar(page);
+  await expect.poll(names).toEqual(['个人','工作']);
+  // 普通点击分类仍然可以筛选
+  await page.getByRole('button',{name:/^个人/}).click();
+  await expect(page.locator('.breadcrumb')).toContainText('个人');
+});
+
 test('assigns searchable custom category icons, randomizes and persists them', async ({page}) => {
   const remoteIconRequests: string[] = [];
   page.on('request', request => { if (request.url().includes('iconify.design')) remoteIconRequests.push(request.url()); });
